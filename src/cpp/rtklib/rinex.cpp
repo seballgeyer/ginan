@@ -7,9 +7,10 @@
 using std::string;
 
 
-
+#include "writeRinexNav.hpp"
 #include "streamTrace.hpp"
 #include "navigation.hpp"
+#include "constants.hpp"
 #include "station.hpp"
 #include "common.hpp"
 #include "gTime.hpp"
@@ -41,18 +42,18 @@ void setstr(char *dst, const char *src, int n)
 /* adjust time considering week handover -------------------------------------*/
 GTime adjweek(GTime t, GTime t0)
 {
-	double tt = timediff(t, t0);
-	if (tt < -302400)		return timeadd(t, +604800);
-	if (tt > +302400)		return timeadd(t, -604800);
+	double tt = t - t0;
+	if (tt < -302400)		return t + 604800.0;
+	if (tt > +302400)		return t - 604800.0;
 							return t;
 }
 
 /* adjust time considering week handover -------------------------------------*/
 GTime adjday(GTime t, GTime t0)
 {
-	double tt = timediff(t, t0);
-	if (tt < -43200.0)		return timeadd(t, +86400.0);
-	if (tt > +43200.0)		return timeadd(t, -86400.0);
+	double tt = t - t0;
+	if (tt < -43200.0)		return t + 86400.0;
+	if (tt > +43200.0)		return t - 86400.0;
 							return t;
 }
 
@@ -65,6 +66,70 @@ int uraindex(double value)
 			break;
 	return i;
 }
+
+double svaToUra(int sva)
+{
+	/*
+		GLOBAL POSITIONING SYSTEM
+		STANDARD POSITIONING SERVICE
+		SIGNAL SPECIFICATION
+		2nd Ed, June 2,1995
+		see section - 2.5.3 User Range Accuracy
+	*/
+	double ura = 0;
+	if (sva <= 6)
+	{
+		ura = 10 * pow(2, 1 + ((double)sva / 2.0));
+		ura = round(ura) / 10.0;
+	}
+	else if (sva != 15)
+		ura = pow(2, (double)sva - 2.0);
+	else
+		ura = -1;
+	return ura;
+}
+
+
+
+double svaToSisa(int sva)
+{
+	/*
+		EUROPEAN GNSS (GALILEO) OPEN SERVICE
+		SIGNAL-IN-SPACE
+		INTERFACE CONTROL
+		DOCUMENT
+		Issue 2.0, January 2021
+		See Section, 5.1.12. Signal – In – Space Accuracy (SISA)
+	*/
+
+	double sisa;
+	if (sva <= 49)			sisa = 0.0 + (sva - 0) * 0.01;
+	else if (sva <= 74)		sisa = 0.5 + (sva - 50) * 0.02;
+	else if (sva <= 99)		sisa = 1.0 + (sva - 75) * 0.04;
+	else if (sva <= 125)	sisa = 2.0 + (sva - 100) * 0.16;
+	else					sisa = -1;
+	return sisa;
+}
+
+int sisaToSva(double sisa)
+{
+	if (sisa < 0)
+	{
+		BOOST_LOG_TRIVIAL(error) << "Error converting SISA to SVA, value is less than zero.";
+		return -1;
+	}
+
+	if (sisa <= 0.49)	return (int)((((sisa - 0.0) / 0.01) + 0) + 0.5);
+	else if (sisa <= 0.98)  return (int)((((sisa - 0.5) / 0.02) + 50) + 0.5);
+	else if (sisa <= 1.96)  return (int)((((sisa - 1.0) / 0.04) + 75) + 0.5);
+	else if (sisa <= 6.00)  return (int)((((sisa - 2.0) / 0.16) + 100) + 0.5);
+	else
+	{
+		BOOST_LOG_TRIVIAL(warning) << "SISA is too large SVA undefined.";
+		return -1;
+	}
+}
+
 
 /*------------------------------------------------------------------------------
 * input rinex functions
@@ -110,7 +175,7 @@ void convcode(
 		}
 		else if (sys==+E_Sys::GLO) sprintf(type,"%c2C",'C');
 		else if (sys==+E_Sys::QZS) sprintf(type,"%c2X",'C');
-		else if (sys==+E_Sys::CMP) sprintf(type,"%c1X",'C'); /* ver.2.12 B1 */
+		else if (sys==+E_Sys::BDS) sprintf(type,"%c1X",'C'); /* ver.2.12 B1 */
 	}
 	else if (ver>=2.12&&str[1]=='A')
 	{
@@ -143,7 +208,7 @@ void convcode(
 		if      (sys==+E_Sys::GPS) sprintf(type,"%c1W",str[0]);
 		else if (sys==+E_Sys::GLO) sprintf(type,"%c1P",str[0]);
 		else if (sys==+E_Sys::GAL) sprintf(type,"%c1X",str[0]); /* tentative */
-		else if (sys==+E_Sys::CMP) sprintf(type,"%c1X",str[0]); /* extension */
+		else if (sys==+E_Sys::BDS) sprintf(type,"%c1X",str[0]); /* extension */
 	}
 	else if (ver<2.12&&str[1]=='1')
 	{
@@ -158,7 +223,7 @@ void convcode(
 		if      (sys==+E_Sys::GPS) sprintf(type,"%c2W",str[0]);
 		else if (sys==+E_Sys::GLO) sprintf(type,"%c2P",str[0]);
 		else if (sys==+E_Sys::QZS) sprintf(type,"%c2X",str[0]);
-		else if (sys==+E_Sys::CMP) sprintf(type,"%c1X",str[0]); /* ver.2.12 B1 */
+		else if (sys==+E_Sys::BDS) sprintf(type,"%c1X",str[0]); /* ver.2.12 B1 */
 	}
 	else if (str[1]=='5')
 	{
@@ -171,12 +236,12 @@ void convcode(
 	{
 		if      (sys==+E_Sys::GAL) sprintf(type,"%c6X",str[0]);
 		else if (sys==+E_Sys::QZS) sprintf(type,"%c6X",str[0]);
-		else if (sys==+E_Sys::CMP) sprintf(type,"%c6X",str[0]); /* ver.2.12 B3 */
+		else if (sys==+E_Sys::BDS) sprintf(type,"%c6X",str[0]); /* ver.2.12 B3 */
 	}
 	else if (str[1]=='7')
 	{
 		if      (sys==+E_Sys::GAL) sprintf(type,"%c7X",str[0]);
-		else if (sys==+E_Sys::CMP) sprintf(type,"%c7X",str[0]); /* ver.2.12 B2 */
+		else if (sys==+E_Sys::BDS) sprintf(type,"%c7X",str[0]); /* ver.2.12 B2 */
 	}
 	else if (str[1]=='8')
 	{
@@ -308,7 +373,7 @@ void decode_obsh(
 			char code[] = "Lxx";
 			code[1] = buff[k+1];
 			code[2] = buff[k+2];
-			if	( (Sat.sys == +E_Sys::CMP)
+			if	( (Sat.sys == +E_Sys::BDS)
 				&&(code[1] == '2'))
 			{
 				/* change beidou B1 code: 3.02 draft -> 3.02 */
@@ -377,7 +442,7 @@ void decode_obsh(
 //                 convcode(ver,E_Sys::GAL,str,tobs[2][nt]);
 //                 convcode(ver,E_Sys::QZS,str,tobs[3][nt]);
 //                 convcode(ver,E_Sys::SBS,str,tobs[4][nt]);
-//                 convcode(ver,E_Sys::CMP,str,tobs[5][nt]);
+//                 convcode(ver,E_Sys::BDS,str,tobs[5][nt]);
 //             }
 //             nt++;
 //         }
@@ -621,7 +686,7 @@ int readrnxh(
 				case 'E': sys = E_Sys::GAL;  tsys = TSYS_GAL; break; /* v.2.12 */
 				case 'S': sys = E_Sys::SBS;  tsys = TSYS_GPS; break;
 				case 'J': sys = E_Sys::QZS;  tsys = TSYS_QZS; break; /* v.3.02 */
-				case 'C': sys = E_Sys::CMP;  tsys = TSYS_CMP; break; /* v.2.12 */
+				case 'C': sys = E_Sys::BDS;  tsys = TSYS_CMP; break; /* v.2.12 */
 				case 'M': sys = E_Sys::NONE; tsys = TSYS_GPS; break; /* mixed */
 				default :
 					BOOST_LOG_TRIVIAL(debug)
@@ -977,7 +1042,7 @@ int decode_eph(
 	if	( sys != +E_Sys::GPS
 		&&sys != +E_Sys::GAL
 		&&sys != +E_Sys::QZS
-		&&sys != +E_Sys::CMP)
+		&&sys != +E_Sys::BDS)
 	{
 		BOOST_LOG_TRIVIAL(debug)
 		<< "ephemeris error: invalid satellite sat=" << Sat.id();
@@ -1008,7 +1073,7 @@ int decode_eph(
 		eph->ttr=adjweek(gpst2time(eph->week,data[27]),toc);
 
 		eph->code=(int)data[20];      /* GPS: codes on L2 ch */
-		eph->svh =(int)data[24];      /* sv health */
+		eph->svh =(E_Svh)data[24];      /* sv health */
 		eph->sva=uraindex(data[23]);  /* ura (m->index) */
 		eph->flag=(int)data[22];      /* GPS: L2 P data flag */
 
@@ -1030,19 +1095,20 @@ int decode_eph(
 									/* bit 2 set: F/NAV E5b-I */
 									/* bit 8 set: af0-af2 toc are for E5a.E1 */
 									/* bit 9 set: af0-af2 toc are for E5b.E1 */
-		eph->svh =(int)data[24];      /* sv health */
+		eph->svh =(E_Svh)data[24];      /* sv health */
 									/* bit     0: E1B DVS */
 									/* bit   1-2: E1B HS */
 									/* bit     3: E5a DVS */
 									/* bit   4-5: E5a HS */
 									/* bit     6: E5b DVS */
 									/* bit   7-8: E5b HS */
-		eph->sva =uraindex(data[23]); /* ura (m->index) */
+		eph->sva = sisaToSva(data[23]);
+		//eph->sva =uraindex(data[23]); /* ura (m->index) */
 
 		eph->tgd[0]=   data[25];      /* BGD E5a/E1 */
 		eph->tgd[1]=   data[26];      /* BGD E5b/E1 */
 	}
-	else if (sys==+E_Sys::CMP)
+	else if (sys==+E_Sys::BDS)
 	{
 		/* BeiDou v.3.02 */
 		eph->toc=bdt2gpst(eph->toc);  /* bdt -> gpst */
@@ -1055,7 +1121,7 @@ int decode_eph(
 		eph->toe=adjweek(eph->toe,toc);
 		eph->ttr=adjweek(eph->ttr,toc);
 
-		eph->svh =(int)data[24];      /* satH1 */
+		eph->svh =(E_Svh)data[24];      /* satH1 */
 		eph->sva=uraindex(data[23]);  /* ura (m->index) */
 
 		eph->tgd[0]=   data[25];      /* TGD1 B1/B3 */
@@ -1115,14 +1181,14 @@ int decode_geph(double ver, SatSys Sat, GTime toc, double *data,
 	/* iode = tb (7bit), tb =index of UTC+3H within current day */
 	geph->iode=(int)(fmod(tow+10800.0,86400.0)/900.0+0.5);
 
-	geph->taun=-data[0];       /* -taun */
+	geph->taun= data[0];       /* taun */
 	geph->gamn= data[1];       /* +gamman */
 
 	geph->pos[0]=data[3]*1E3; geph->pos[1]=data[7]*1E3; geph->pos[2]=data[11]*1E3;
 	geph->vel[0]=data[4]*1E3; geph->vel[1]=data[8]*1E3; geph->vel[2]=data[12]*1E3;
 	geph->acc[0]=data[5]*1E3; geph->acc[1]=data[9]*1E3; geph->acc[2]=data[13]*1E3;
 
-	geph->svh=(int)data[ 6];
+	geph->svh=(E_Svh)data[ 6];
 	geph->frq=(int)data[10];
 	geph->age=(int)data[14];
 
@@ -1169,7 +1235,7 @@ int decode_seph(double ver, SatSys Sat, GTime toc, double *data,
 	seph->vel[0]=data[4]*1E3; seph->vel[1]=data[8]*1E3; seph->vel[2]=data[12]*1E3;
 	seph->acc[0]=data[5]*1E3; seph->acc[1]=data[9]*1E3; seph->acc[2]=data[13]*1E3;
 
-	seph->svh=(int)data[6];
+	seph->svh=(E_Svh)data[6];
 	seph->sva=uraindex(data[10]);
 
 	return 1;
@@ -1258,8 +1324,8 @@ int readrnxnav(
 	Eph		eph;
 	Geph	geph;
 	Seph	seph;
-	int stat;
-	int type;
+	int		stat;
+	int		type;
 
 //     BOOST_LOG_TRIVIAL(debug)
 // 	<< "readrnxnav: ver=" << ver << " sys=" << sys;
@@ -1272,9 +1338,9 @@ int readrnxnav(
 		{
 			switch (type)
 			{
-				case 1 : nav.gephMap[geph.Sat].push_back(geph);	break;
-				case 2 : nav.sephMap[seph.Sat].push_back(seph);	break;
-				default: nav.ephMap [eph.Sat] .push_back(eph);	break;
+				case 1 : nav.gephMap[geph.Sat][eph.toe] = geph;	break;
+				case 2 : nav.sephMap[seph.Sat][eph.toe] = seph;	break;
+				default: nav.ephMap [eph.Sat] [eph.toe] = eph;	break;
 			}
 		}
 	}
@@ -1323,7 +1389,7 @@ int readrnxclk(
 		char*	buff	= &line[0];
 
 		GTime time;
-		if (str2time(buff,tim.offset,tim.length,time))
+		if (str2time(buff, tim.offset, tim.length, time))
 		{
 //             trace(2,"rinex clk invalid epoch: %34.34s\n", buff);
 			continue;

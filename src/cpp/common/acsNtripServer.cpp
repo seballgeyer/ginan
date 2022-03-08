@@ -1,4 +1,10 @@
+
+
 #include "acsNtripServer.hpp"
+
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS
+
+#include <boost/bind.hpp>
 
 void NtripServer::NtripClient::negotiationError()
 {
@@ -10,9 +16,9 @@ void NtripServer::NtripClient::negotiationError()
 
 void NtripServer::NtripClient::initialize()
 {
-const int max_length = 2048;  
-try
-{
+	const int max_length = 2048;  
+	try
+	{
 		BOOST_LOG_TRIVIAL(debug) << "Incomming connection, handshake.\n";
 		parentServer.listenMtx.unlock();
 	

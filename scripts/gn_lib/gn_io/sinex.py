@@ -1,6 +1,7 @@
 '''IO functions for various formats used: trace, sinex etc '''
 
 import glob as _glob
+import logging as _logging
 import re as _re
 import zlib
 from io import BytesIO as _BytesIO
@@ -14,7 +15,7 @@ from ..gn_const import PT_CATEGORY, TYPE_CATEGORY
 from ..gn_datetime import yydoysec2datetime as _yydoysec2datetime
 from .common import path2bytes
 
-_RE_BLK_HEAD = _re.compile(rb'\+S\w+\/\w+(\s[LU]|)\s*(CORR|COVA|INFO|)\n(?:\*.+\n|)')
+_RE_BLK_HEAD = _re.compile(rb'\+S\w+\/\w+(\s[LU]|)\s*(CORR|COVA|INFO|)[ ]*\n(?:\*[ ].+\n|)(?:\*\w.+\n|)')
 
 def _get_valid_stypes(stypes, verbose=True):
     '''Returns only stypes in allowed list
@@ -28,7 +29,7 @@ def _get_valid_stypes(stypes, verbose=True):
             if verbose:
                 not_allowed_stypes.add(stype)
     if verbose and len(not_allowed_stypes) > 0:
-        print(f'{not_allowed_stypes} not supported')
+        _logging.error(f'{not_allowed_stypes} not supported')
     return sorted(list(allowed_stypes))
 
 def _snx_extract_blk(snx_bytes, blk_name, remove_header=False):
@@ -41,10 +42,10 @@ def _snx_extract_blk(snx_bytes, blk_name, remove_header=False):
     blk_begin = snx_bytes.find(f'+{blk_name}'.encode())
     blk_end = snx_bytes.find(f'-{blk_name}'.encode(), blk_begin)
     if blk_begin == -1:
-        # _tqdm.write(f'{blk_name} blk missing')
+        _logging.info(f'{blk_name} blk missing')
         return None  #if there is no block begin bound -> None is returned
     if blk_end == -1:
-        # _tqdm.write(f'{blk_name} blk corrupted')
+        _logging.info(f'{blk_name} blk corrupted')
         return None
 
     head_search = _RE_BLK_HEAD.search(string=snx_bytes, pos=blk_begin)
@@ -53,6 +54,10 @@ def _snx_extract_blk(snx_bytes, blk_name, remove_header=False):
     blk_content = snx_bytes[head_search.end():blk_end]
     # blk content without header (usual request)
     lines_count = blk_content.count(b'\n')
+    if lines_count == 0:
+        _logging.error(f'{blk_name} blk is empty')
+        return None
+
     #may be skipped for last/first block (TODO)
     if not remove_header:
         blk_content = snx_bytes[head_search.span(2)[1]:blk_end]
@@ -81,10 +86,13 @@ def _snx_extract(snx_bytes, stypes, obj_type, verbose=True):
     objects_in_buf = 0
     for stype in stypes:
         if stype in stypes_dict.keys():
+            remove_header = objects_in_buf != 0
+            if (objects_in_buf == 0) & (obj_type == 'MATRIX'): # override matrix header as comments may be present
+                snx_buffer+=b'*PARA1 PARA2 ____PARA2+0__________ ____PARA2+1__________ ____PARA2+2__________\n'
+                remove_header = True
             stype_extr = _snx_extract_blk(snx_bytes=snx_bytes,
                                           blk_name=stypes_dict[stype],
-                                          remove_header=objects_in_buf != 0)
-            # print(objects_in_buf != 0)
+                                          remove_header= remove_header)
             if stype_extr is not None:
                 snx_buffer += stype_extr[0]
                 stypes_rows[stype] = stype_extr[1]
@@ -93,17 +101,17 @@ def _snx_extract(snx_bytes, stypes, obj_type, verbose=True):
                 objects_in_buf += 1
             else:
                 if verbose:
-                    print(f'{stype} ({stypes_dict[stype]}) blk not found')
+                    _logging.error(f'{stype} ({stypes_dict[stype]}) blk not found')
                 return None
 
         else:
             if verbose:
-                print(f'{stype} blk not supported')
+                _logging.error(f'{stype} blk not supported')
     stypes = list(stypes_rows.keys())
     n_stypes = len(stypes)  #existing stypes only
     if n_stypes == 0:
         if verbose:
-            print('nothing found')
+            _logging.error('nothing found')
         return None
     return _BytesIO(snx_buffer), stypes_rows, stypes_form, stypes_content
 
@@ -149,7 +157,14 @@ def _get_snx_matrix(path_or_bytes,
             n_elements=n_elements)
         output.append(ma_sq)
         prev_idx += idx
-    return output, stypes
+    return output, stypes,stypes_content
+
+def snxdf2xyzdf(snxdf,unstack=True):
+    types_mask = snxdf.TYPE.isin(['STAX','STAY', 'STAZ', 'VELX', 'VELY', 'VELZ',]).values
+    snxdf.drop(index = snxdf.index.values[~types_mask],inplace=True)
+    snxdf['CODE_PT'] = snxdf.CODE.values + '_' + snxdf.PT.values.astype(object)
+    snx_df = snxdf.drop(columns=['CODE','PT','SOLN']).set_index(['CODE_PT', 'REF_EPOCH','TYPE'])
+    return snx_df.unstack(2) if unstack else snx_df
 
 def _get_snx_vector(path_or_bytes, stypes=('APR', 'EST'), snx_format=True,verbose=True):
     '''stypes = "APR","EST","NEQ"
@@ -170,7 +185,7 @@ def _get_snx_vector(path_or_bytes, stypes=('APR', 'EST'), snx_format=True,verbos
         stypes = ('APR','NEQ')
         #should always return NEQ vector with APR above it
         if verbose:
-            print('Prepending APR')
+            _logging.info('Prepending APR')
 
     extracted = _snx_extract(snx_bytes=snx_bytes, stypes=stypes, obj_type='VECTOR', verbose=verbose)
     if extracted is None:
@@ -197,7 +212,7 @@ def _get_snx_vector(path_or_bytes, stypes=('APR', 'EST'), snx_format=True,verbos
 
     except ValueError as _e:
         if _e.args[0][:33] == 'could not convert string to float':
-            _tqdm.write(f'{path} data corrupted. Skipping', end=' | ')
+            _logging.error(f'{path} data corrupted. Skipping')
             return None
         else:
             raise _e
@@ -229,42 +244,37 @@ def _get_snx_vector(path_or_bytes, stypes=('APR', 'EST'), snx_format=True,verbos
         prev_idx += idx
     output = _pd.concat(output, axis=1)
 
-    if snx_format:
+    if snx_format is None:
         return output
-
-    values = output.columns.intersection(['APR','EST','STD','NEQ'])
-    types_mask = output.TYPE.isin(['STAX','STAY', 'STAZ', 'VELX', 'VELY', 'VELZ',])
-    output = output.loc[types_mask]
-    output['CODE_PT'] = output.CODE.values + '_' + output.PT.values.astype(object)
-    return output.drop(columns=['CODE','PT','SOLN']).set_index(['CODE_PT', 'REF_EPOCH','TYPE']).unstack(2)
+    if snx_format:
+        return snxdf2xyzdf(output,unstack=False)
+    return snxdf2xyzdf(output,unstack=True)
 
 def _matrix_raw2square(matrix_raw,matrix_content_type,stypes_form,n_elements=None):
-    if matrix_content_type == b'CORR':
-        raise ValueError('CORR parsing not implemented yet')
-    else:
-        if stypes_form == b'U':
-            print('U matrix detected. Not tested!')
-        idx = matrix_raw.iloc[:,:2].values - 1
-        #last element of first index column. Should be specified for IGS APR matrices (?)
-        n_elements = idx[-1,0] + 1 if n_elements is None else n_elements
+    if stypes_form == b'U':
+        _logging.info('U matrix detected. Not tested!')
+    idx = matrix_raw.iloc[:,:2].values - 1
+    #last element of first index column. Should be specified for IGS APR matrices (?)
+    n_elements = idx[-1,0] + 1 if n_elements is None else n_elements
 
-        rows = idx[:,0]
-        cols = idx[:,1]
+    rows = idx[:,0]
+    cols = idx[:,1]
 
-        values = matrix_raw.iloc[:,2:].values.flatten(order='F')
-        nanmask = ~_np.isnan(values)
+    values = matrix_raw.iloc[:,2:].values.flatten(order='F')
+    nanmask = ~_np.isnan(values)
 
-        rows = _np.concatenate((rows,rows,rows))
-        cols = _np.concatenate((cols,cols+1,cols+2))
+    rows = _np.concatenate((rows,rows,rows))
+    cols = _np.concatenate((cols,cols+1,cols+2))
 
-        matrix = _np.ndarray((n_elements,n_elements),dtype=values.dtype)
-        matrix.fill(0)
-        matrix[rows[nanmask],cols[nanmask]] = values[nanmask]
+    matrix = _np.ndarray((n_elements,n_elements),dtype=values.dtype)
+    matrix.fill(0)
+    matrix[rows[nanmask],cols[nanmask]] = values[nanmask]
 
-        # shouldn't care if lower or upper triangle
-        matrix_square = matrix.T + matrix
-        _np.fill_diagonal(matrix_square,_np.diag(matrix))
-        return matrix_square
+    # shouldn't care if lower or upper triangle
+    matrix_square = matrix.T + matrix
+    # CORR diagonal elements are std values. Dropping as it is a copy of EST block std
+    _np.fill_diagonal(matrix_square,1 if matrix_content_type == b'CORR' else _np.diag(matrix))
+    return matrix_square
 
 def _unc_snx_neq(path_or_bytes):
     vector = _get_snx_vector(path_or_bytes=path_or_bytes,stypes=['APR','EST','NEQ'],verbose=False)
@@ -296,15 +306,11 @@ def unc_snx(path,snx_format=True):
     snx_bytes = path2bytes(path)
     if snx_bytes.find(b'NORMAL_EQUATION_MATRIX') == -1:
         output =  _unc_snx_cova(snx_bytes)
-    output =  _unc_snx_neq(snx_bytes)
+    else:
+        output =  _unc_snx_neq(snx_bytes)
     if snx_format:
         return output
-    values = output.columns
-    values = values[_np.isin(values,['APR','EST','STD','UNC'])] #Do we need NEQ?
-    return output.loc[['STAX', 'STAZ',
-                       'STAY']].pivot_table(index=['CODE', 'REF_EPOCH'],
-                                            columns=['TYPE'],
-                                            values=values)
+    return snxdf2xyzdf(output)
 
 def _read_snx_solution(path_or_bytes):
     '''_get_snx_vector template to get a df with multiIndex columns as:
@@ -353,7 +359,6 @@ def _get_snx_vector_gzchunks(filename,block_name='SOLUTION/ESTIMATE',size_lookba
                 chunk = uncompressed
             if chunk.find(f'+{block_name}'.encode()) != -1:
                 block_open = True
-#                     print('found')
             if block_open:
                 block_bytes += chunk[size_lookback if i>0 else 0:]
 
@@ -362,7 +367,7 @@ def _get_snx_vector_gzchunks(filename,block_name='SOLUTION/ESTIMATE',size_lookba
                     stop=True
             i+=1
 
-    return _get_snx_vector(path_or_bytes=block_bytes,stypes=['EST'])
+    return _get_snx_vector(path_or_bytes=block_bytes,stypes=['EST'],snx_format=None)
 
 
 #SINEX ID BLOCK
@@ -374,14 +379,16 @@ def degminsec2decdeg(series):
     sign = _np.sign(_deg)
     return _deg + sign*_min/60 + sign*_sec/3600
 
-def _get_snx_id(path):
+def _get_snx_id(path, sites_only=False):
     snx_bytes = path2bytes(path)
     site_id   = _snx_extract_blk(snx_bytes=snx_bytes,blk_name='SITE/ID',remove_header=True)[0]
-    site_id = site_id.decode(encoding='utf8',errors='ignore').encode()
-    id_df = _pd.read_fwf(_BytesIO(site_id),header=None,
-            colspecs=[(0,5),(5,8),(8,18),(18,20),(20,44),(44,55),(55,68),(68,76)])
+    if sites_only:
+        return _np.char.strip(_np.asarray(site_id.splitlines()).astype('U5'))
 
-    id_df.columns = ['CODE','PT','DOMES','T','LOCATION','LON','LAT','H']
+    id_df = _pd.read_fwf(_BytesIO(site_id),header=None,
+            colspecs=[(0,5),(5,8),(8,18),(18,20),(44,55),(55,68),(68,76)])
+
+    id_df.columns = ['CODE','PT','DOMES','T','LON','LAT','H'] # location may have non-unicode chars
     id_df.LON = degminsec2decdeg(id_df.LON)
     id_df.LAT = degminsec2decdeg(id_df.LAT)
     return id_df
@@ -392,9 +399,6 @@ def llh2snxdms(llh):
     '''
     ll_dd = llh[:,:2]
     ll_dd[:,1] %=360
-
-    # zero_mask = _np.any(ll_dd == 0.0, axis=1)
-    # print(llh[zero_mask])
 
     sign =  _np.sign(ll_dd)
     ll_dd = _np.abs(ll_dd)

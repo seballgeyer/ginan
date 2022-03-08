@@ -47,7 +47,7 @@ SUBROUTINE eop_rd (EOP_fname, EOP_sol, mjd , eop)
       INTEGER (KIND = prec_int1), INTENT(IN) :: EOP_sol
       CHARACTER (LEN=512), INTENT(IN) :: EOP_fname
 ! OUT
-      REAL (KIND = prec_d), INTENT(OUT) :: eop(7)
+      REAL (KIND = prec_d), INTENT(OUT) :: eop(EOP_MAX_ARRAY)
 ! ----------------------------------------------------------------------
 
 ! ----------------------------------------------------------------------

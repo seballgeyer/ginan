@@ -7,8 +7,11 @@
 #include <map>
 
 using std::map;
+using std::pair;
 
-#include "acsStream.hpp"
+#include "acsObsStream.hpp"
+#include "acsNavStream.hpp"
+
 #include "ntripTrace.hpp"
 
 struct LockTimeInfo
@@ -200,6 +203,8 @@ struct RtcmStream : ObsStream, NavStream,
 	double		totalLatency		= 0;
 	
 	static GTime rtcmDeltaTime;
+	
+	bool record_rtcm = false;
 	
     GTime rtcm_UTC;
     int adjgpsweek(int week) override;

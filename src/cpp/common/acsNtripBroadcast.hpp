@@ -1,3 +1,4 @@
+
 #ifndef NTRIPSSRBROADCASTER_H
 #define NTRIPSSRBROADCASTER_H
 
@@ -12,9 +13,6 @@
 #include "enums.h"
 
 
-
-template<typename T>
-extern std::ofstream getTraceFile(T& thing);
 
 struct NtripBroadcaster
 {
@@ -34,11 +32,13 @@ struct NtripBroadcaster
 		string	ntripStr = "";
 		
 		// Message Type and Broadcast Interval in milliseconds.
-		vector<RtcmMessageType> rtcmMessagesTypes;
+		set<RtcmMessageType> rtcmMessagesTypes;
 		
-		
+		NetworkDataUpload epochData;
+		NetworkDataUpload hourlyData;
+		NetworkDataUpload runData;
+
 		NtripTrace	ntripTrace;
-		//std::shared_ptr<std::ofstream> trace;
 		string traceFilename;
 		string		id = "NtripUploadClient";
 		
@@ -59,30 +59,41 @@ struct NtripBroadcaster
 										request_stream	<< "User-Agent: NTRIP ACS/1.0\r\n";
 			if (!ntripStr.empty())	    request_stream	<< "Ntrip-STR: " << ntripStr << "\r\n";
 										request_stream	<< "Connection: close\r\n";
+										request_stream  << "Transfer-Encoding: chunked\r\n";
 										request_stream	<< "\r\n";
 			request_string = request_stream.str();
-			
+
 			connect();
 		};
+
+		void connected() 
+		override;
+
+		void sendMessages(
+			bool useSsrOut);
 		
-		void connected() override;
-		void sendMessages(bool useSsrOut);
-		void writeResponse(const boost::system::error_code& err);
-		
-		string getJsonNetworkStatistics(system_clock::time_point epochTime);
-		
-		void makeOutputTrace()
-		{
-			auto trace = getTraceFile((*this));
-			traceWriteEpoch(trace);
-		}
-	
+		void writeResponse(
+			const boost::system::error_code& err);
+
+		void connectionError(
+			const boost::system::error_code& err,
+			string 							 operation) 
+		override;
+
+		void serverResponse(
+			unsigned int status_code,
+			string		 http_version)
+		override;
+
+		void getJsonNetworkStatistics(
+			GTime now);
+
 		void traceSsrEph(
 			SatSys Sat, 
 			SSREph ssrEph)
 		override
 		{
-			ntripTrace.traceSsrEph(Sat,ssrEph);
+			ntripTrace.traceSsrEph(Sat, ssrEph);
 		}
 
 		void traceSsrClk(
@@ -90,22 +101,22 @@ struct NtripBroadcaster
 			SSRClk ssrClk) 
 		override
 		{
-			ntripTrace.traceSsrClk(Sat,ssrClk);
+			ntripTrace.traceSsrClk(Sat, ssrClk);
 		}
 
 		void traceSsrCodeB(
-			SatSys Sat,
-			E_ObsCode mode, 
-			SSRBias ssrBias)
+			SatSys 		Sat,
+			E_ObsCode 	code, 
+			SSRBias 	ssrBias)
 		override
 		{
-			ntripTrace.traceSsrCodeB(Sat, mode, ssrBias);
+			ntripTrace.traceSsrCodeB(Sat, code, ssrBias);
 		}
 
 		void traceSsrPhasB(
-			SatSys Sat,
-			E_ObsCode mode, 
-			SSRBias ssrBias)
+			SatSys 	 	Sat,
+			E_ObsCode	mode, 
+			SSRBias  	ssrBias)
 		override
 		{
 			ntripTrace.traceSsrPhasB(Sat, mode, ssrBias);
@@ -117,7 +128,7 @@ struct NtripBroadcaster
 		{
 			ntripTrace.messageChunkLog(message);
 		}
-		
+
 		void networkLog(
 			string message)
 		override
@@ -126,21 +137,25 @@ struct NtripBroadcaster
 		}
 
 		void traceMakeNetworkOverview(
-			Trace& trace);
+			Trace&				trace,
+			NetworkDataUpload&	netData);
 
 		void traceWriteEpoch(
 			Trace& trace)
 		{
-			traceMakeNetworkOverview(trace);
+			traceMakeNetworkOverview(trace, runData);
 			ntripTrace.traceWriteEpoch(trace);
 		}
 	};
-	
-	void sendMessages(bool useSsrOut);
+
+	void sendMessages(
+		bool useSsrOut);
+
 	void stopBroadcast();
-	
-	std::multimap<string, std::shared_ptr<NtripUploadClient>> ntripUploadStreams;
-	
+
+	map<string, std::shared_ptr<NtripUploadClient>> ntripUploadStreams;
 };
+
+extern	NtripBroadcaster outStreamManager;
 
 #endif

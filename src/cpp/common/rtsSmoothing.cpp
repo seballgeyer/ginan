@@ -1,19 +1,23 @@
 
+//#pragma GCC optimize ("O0")
 
 #include <map>
 
 using std::map;
 
+#include <boost/log/trivial.hpp>
+#include "writeRinexNav.hpp"
 #include "eigenIncluder.hpp"
-
+#include "writeRinexObs.hpp"
 #include "algebraTrace.hpp"
 #include "rtsSmoothing.hpp"
 #include "writeClock.hpp"
+#include "GNSSambres.hpp"
 #include "acsConfig.hpp"
+#include "constants.hpp"
 #include "algebra.hpp"
 #include "mongo.hpp"
 #include "ppp.hpp"
-
 
 bool isPositiveSemiDefinite(MatrixXd& mat)
 {
@@ -37,8 +41,123 @@ bool isPositiveSemiDefinite(MatrixXd& mat)
 	return true;
 }
 
-KFState RTS_Process(KFState& kfState, bool write)
+void postRTSActions(
+	bool		final,				///< This is a final answer, not intermediate - output to files
+	KFState&	kfState,			///< State to get filter traces from
+	string		clockFilename,		///< Filename for smoothed clock output
+	string		tropFilename,		///< Filename for smoothed troposphere output
+	StationMap*	stationMap_ptr)		///< Pointer to map of stations
 {
+	std::ofstream ofs(kfState.rts_filename, std::ofstream::out | std::ofstream::app);
+	
+	if	(   final
+		&&  acsConfig.output_clocks
+		&&( acsConfig.clocks_receiver_source	== +E_Ephemeris::KALMAN
+		  ||acsConfig.clocks_satellite_source	== +E_Ephemeris::KALMAN))
+	{
+		tryPrepareFilterPointers(kfState, stationMap_ptr);
+
+		auto filenameSysMap = getSysOutputFilenames(acsConfig.clocks_filename + SMOOTHED_SUFFIX, kfState.time);
+
+		for (auto [filename, sysMap] : filenameSysMap)
+		{
+			outputClocks(filename, acsConfig.clocks_receiver_source, acsConfig.clocks_satellite_source, kfState.time, sysMap, kfState, stationMap_ptr);
+		}
+	}
+
+	if	(   final
+		&&  acsConfig.output_trop_sinex
+		&&	acsConfig.trop_data_source == +E_Ephemeris::KALMAN)
+	{
+		outputTropSinex(tropFilename, kfState.time, *stationMap_ptr, kfState, "MIX", true);		//todo aaron, no site specific version here
+	}
+
+	if (final)
+	{
+		kfState.outputStates(ofs);
+	}
+
+#	ifdef ENABLE_MONGODB
+	if	(   acsConfig.output_mongo_states
+		&&( final
+		  ||acsConfig.output_intermediate_rts))
+	{
+		mongoStates(kfState, acsConfig.mongo_rts_suffix);
+	}
+#	endif
+
+// 	pppoutstat(ofs, archiveKF, true);
+}
+
+/** Output filter states from a reversed binary trace file
+*/
+void RTS_Output(
+	KFState&	kfState,			///< State to get filter traces from
+	StationMap*	stationMap_ptr,		///< Pointer to map of stations
+	string		clockFilename,		///< Filename to output clocks to once smoothed
+	string		tropFilename)		///< Filename for smoothed troposphere output
+{
+	string reversedStatesFilename = kfState.rts_filename + BACKWARD_SUFFIX;
+	
+	long int startPos = -1;
+	while (1)
+	{
+		E_SerialObject type = getFilterTypeFromFile(startPos, reversedStatesFilename);
+
+		switch (type)
+		{
+			default:
+			{
+				std::cout << "UNEXPECTED RTS OUTPUT TYPE";
+				return;
+			}
+
+			case E_SerialObject::FILTER_PLUS:
+			{
+				KFState archiveKF;
+				bool pass = getFilterObjectFromFile(type, archiveKF, startPos, reversedStatesFilename);
+				
+				
+				if (pass == false)
+				{
+					std::cout << "BAD RTS OUTPUT READ";
+					return;
+				}
+				
+				archiveKF.rts_filename = kfState.rts_filename;
+				
+				if	( acsConfig.ambrOpts.NLmode != +E_ARmode::OFF )
+				{
+					KFState ARRTScopy = archiveKF;
+					int nfix = smoothdAmbigResl( ARRTScopy );
+					postRTSActions(true, ARRTScopy, clockFilename, tropFilename, stationMap_ptr);
+				}
+				else 
+					postRTSActions(true, archiveKF, clockFilename, tropFilename, stationMap_ptr);
+
+				break;
+			}
+		}
+
+		if (startPos == 0)
+		{
+			return;
+		}
+	}
+}
+
+KFState RTS_Process(
+	KFState&	kfState,
+	bool		write,
+	StationMap*	stationMap_ptr,
+	string		clockFilename,
+	string		tropFilename)
+{
+	if (kfState.rts_lag == 0)
+	{
+		return KFState();
+	}
+	
 	MatrixXd transistionMatrix;
 
 	KFState kalmanMinus;
@@ -67,7 +186,11 @@ KFState RTS_Process(KFState& kfState, bool write)
 		}
 
 		switch (type)
-		{
+		{	
+			default:
+			{
+				break;
+			}
 			case E_SerialObject::TRANSITION_MATRIX:
 			{
 				TransitionMatrixObject transistionMatrixObject;
@@ -109,7 +232,8 @@ KFState RTS_Process(KFState& kfState, bool write)
 
 				if (write)
 				{
-					std::cout << std::endl << "Lag: " << lag << std::endl;
+					BOOST_LOG_TRIVIAL(info) 
+					<< "Lag: " << lag;
 				}
 
 				KFState kalmanPlus;
@@ -163,6 +287,17 @@ KFState RTS_Process(KFState& kfState, bool write)
 				{
 					spitFilterToFile(smoothedKF, E_SerialObject::FILTER_PLUS, outputFile);
 				}
+				else
+				{
+					bool final = false;
+					if (lag == kfState.rts_lag)
+					{
+						final = true;
+					}
+					
+					smoothedKF.rts_filename = kfState.rts_filename;
+					postRTSActions(final, smoothedKF, clockFilename, tropFilename, stationMap_ptr);
+				}
 				
 				break;
 			}
@@ -172,6 +307,11 @@ KFState RTS_Process(KFState& kfState, bool write)
 		{
 			break;
 		}
+	}
+	
+	if (write)
+	{
+		RTS_Output(kfState, stationMap_ptr, clockFilename, tropFilename);
 	}
 
 	if (lag == kfState.rts_lag)
@@ -183,7 +323,7 @@ KFState RTS_Process(KFState& kfState, bool write)
 			std::fstream	inputStream(inputFile,	std::ifstream::binary | std::ifstream::in);
 
 			inputStream.seekg(0,	inputStream.end);
-				long int lengthPos = inputStream.tellg();
+			long int lengthPos = inputStream.tellg();
 
 			vector<char>	fileContents(lengthPos - startPos);
 
@@ -196,6 +336,21 @@ KFState RTS_Process(KFState& kfState, bool write)
 		std::remove(inputFile.c_str());
 		std::rename(tempFile.c_str(), inputFile.c_str());
 	}
+	
+	if (kfState.rts_lag < 0)
+	{
+		BOOST_LOG_TRIVIAL(info) 
+		<< "Removing RTS file: " << inputFile;
+		
+		std::remove(inputFile.c_str());
+		
+		string reversedStatesFilename = kfState.rts_filename + BACKWARD_SUFFIX;
+		
+		BOOST_LOG_TRIVIAL(info) 
+		<< "Removing RTS file: " << reversedStatesFilename;
+		
+		std::remove(reversedStatesFilename.c_str());
+	}
 
 	if (lag == kfState.rts_lag)
 	{
@@ -204,63 +359,5 @@ KFState RTS_Process(KFState& kfState, bool write)
 	else
 	{
 		return KFState();
-	}
-}
-
-/** Output filter states from a reversed binary trace file
-*/
-void RTS_Output(
-	KFState&	kfState,			///< State to get filter traces from
-	string		clockFilename)		///< Filename to output clocks to once smoothed
-{
-	std::ofstream ofs(kfState.rts_filename + SMOOTHED_SUFFIX,	std::ofstream::out | std::ofstream::app);
-
-	long int startPos = -1;
-	while (1)
-	{
-		E_SerialObject type = getFilterTypeFromFile(startPos, kfState.rts_filename + BACKWARD_SUFFIX);
-
-		switch (type)
-		{
-			default:
-			{
-				std::cout << "UNEXPECTED RTS OUTPUT TYPE";
-				return;
-			}
-
-			case E_SerialObject::FILTER_PLUS:
-			{
-				KFState archiveKF;
-				bool pass = getFilterObjectFromFile(type, archiveKF, startPos, kfState.rts_filename + BACKWARD_SUFFIX);
-
-				if	( acsConfig.output_clocks
-					&&clockFilename.empty() == false)
-				{
-					double ep[6];
-					time2epoch(archiveKF.time, ep);
-
-					outputClockfileHeader(clockFilename, archiveKF, ep);
-					outputReceiverClocks (clockFilename, archiveKF, ep);
-					outputSatelliteClocks(clockFilename, archiveKF, ep);
-				}
-
-				archiveKF.outputStates(ofs);
-
-#				ifdef ENABLE_MONGODB
-				if	( acsConfig.output_mongo_states)
-				{
-					mongoStates(archiveKF, "RTS_");
-				}
-#				endif
-
-				pppoutstat(ofs, archiveKF, true);
-				break;
-			}
-		}
-
-		if (startPos == 0)
-		{
-			return;
-		}
 	}
 }

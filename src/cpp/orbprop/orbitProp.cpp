@@ -11,7 +11,6 @@
 #include "common/eigenIncluder.hpp"
 #include "common/enums.h"
 #include "common/gTime.hpp"
-#include "common/interactiveTerminal.hpp"
 #include "common/mongo.hpp"
 #include "common/navigation.hpp"
 #include "common/sinex.hpp"
@@ -1310,7 +1309,6 @@ void predictOrbits(Trace& trace, KFState& kfState, GTime time)
         return;
     }
 
-    InteractiveTerminal::setMode(E_InteractiveMode::PropagatingOrbits);
     BOOST_LOG_TRIVIAL(info) << " ------- PROPAGATING ORBITS           --------" << "\n";
 
     OrbitIntegrator integrator;

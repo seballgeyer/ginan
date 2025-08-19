@@ -20,7 +20,6 @@
 #include "common/compare.hpp"
 #include "common/constants.hpp"
 #include "common/debug.hpp"
-#include "common/interactiveTerminal.hpp"
 #include "configurator/htmlFooterTemplate.hpp"
 #include "configurator/htmlHeaderTemplate.hpp"
 #include "pea/inputsOutputs.hpp"
@@ -4270,7 +4269,6 @@ bool configure(
         ("very-quiet,Q", "Much less output")
         ("verbose,v", "More output")
         ("very-verbose,V", "Much more output")
-        ("interactive,I", "Use interactive terminal")
         ("yaml-defaults,Y", boost::program_options::value<int>(), "Print set of parsed parameters and their default values according to their priority level (1-3), and generate configurator.html for visual editing of yaml files")
         ("config_description,d", boost::program_options::value<string>(), "Configuration description")
         ("level,l", boost::program_options::value<int>(), "Trace level")
@@ -4364,10 +4362,6 @@ bool configure(
         acsSeverity = boost::log::trivial::error;
     }
 
-    if (vm.count("interactive"))
-    {
-        InteractiveTerminal::enable();
-    }
 
     if (vm.count("yaml-defaults"))
     {

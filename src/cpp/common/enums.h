@@ -988,20 +988,4 @@ BETTER_ENUM(E_Mongo, short int, NONE, PRIMARY, SECONDARY, BOTH)
 
 BETTER_ENUM(E_Mincon, short int, PSEUDO_OBS, WEIGHT_MATRIX, VARIANCE_INVERSE, COVARIANCE_INVERSE)
 
-BETTER_ENUM(
-    E_InteractiveMode,
-    short int,
-    Syncing,
-    PropagatingOrbits,
-    Preprocessing,
-    StateTransition1,
-    OMCCalculations,
-    StateTransition2,
-    Filtering,
-    MinimumConstraints,
-    PredictingStates,
-    Outputs,
-    Complete
-)
 
-BETTER_ENUM(E_InteractMode, short int, None, Page, Scroll)

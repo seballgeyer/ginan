@@ -9,7 +9,6 @@
 #include "common/algebraTrace.hpp"
 #include "common/constants.hpp"
 #include "common/eigenIncluder.hpp"
-#include "common/interactiveTerminal.hpp"
 #include "common/metaData.hpp"
 #include "common/mongoWrite.hpp"
 #include "common/navigation.hpp"
@@ -40,8 +39,6 @@ void rtsOutput(
     ReceiverMap& receiverMap  ///< map of receivers
 )
 {
-    InteractiveTerminal::setMode(E_InteractiveMode::Outputs);
-
     string reversedStatesFilename = kfState.rts_basename + BACKWARD_SUFFIX;
 
     long int startPos = -1;
@@ -363,8 +360,6 @@ void rtsSmoothing(KFState& kfState, ReceiverMap& receiverMap, bool write)
                     break;
                 }
 
-                InteractiveTerminal::setMode(E_InteractiveMode::Filtering);
-
                 smoothedKF.time = kalmanPlus.time;
 
                 smoothedKF.P = (smoothedKF.P + smoothedKF.P.transpose()).eval() / 2;
@@ -573,8 +568,6 @@ void rtsSmoothing(KFState& kfState, ReceiverMap& receiverMap, bool write)
 
                 if (write)
                 {
-                    InteractiveTerminal::setMode(E_InteractiveMode::Outputs);
-
                     spitFilterToFile(
                         smoothedKF,
                         E_SerialObject::FILTER_SMOOTHED,
@@ -623,13 +616,6 @@ void rtsSmoothing(KFState& kfState, ReceiverMap& receiverMap, bool write)
 
                 BOOST_LOG_TRIVIAL(info) << "Processed epoch" << " - " << boostTime << " (took "
                                         << (epochStopTime - epochStartTime) << ")";
-
-                InteractiveTerminal::clearModes(
-                    (string) " Processing epoch " + kalmanPlus.time.to_string(),
-                    (string) " Last Epoch took " +
-                        std::to_string((epochStopTime - epochStartTime).to_double()) + "s"
-                );
-                InteractiveTerminal::setMode(E_InteractiveMode::Syncing);
 
                 epochStartTime = timeGet();
 

@@ -1,0 +1,8 @@
+
+vcpkg_installed/*
+src/build/*
+src/bin/*
+src/lib/*
+
+src/cpp/pea/peaCommitVersion.h
+src/cpp/pea/peaLibVersion.h

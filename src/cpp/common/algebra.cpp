@@ -9,7 +9,6 @@
 #include "common/common.hpp"
 #include "common/constants.hpp"
 #include "common/eigenIncluder.hpp"
-#include "common/interactiveTerminal.hpp"
 #include "common/mongo.hpp"
 #include "common/mongoWrite.hpp"
 #include "common/trace.hpp"
@@ -2201,9 +2200,7 @@ void KFState::filterKalman(
 
             if (output_residuals)
             {
-                InteractiveTerminal ss("Residuals" + suffix, trace);
-
-                outputResiduals(ss, kfMeas, i, suffix, fc.begH, fc.numH);
+                outputResiduals(trace, kfMeas, i, suffix, fc.begH, fc.numH);
             }
 
             if (postfitOpts.sigma_check == false && postfitOpts.omega_test == false)
@@ -2725,19 +2722,18 @@ KFState KFState::getSubState(vector<KF> types, KFMeas* meas_ptr) const
 /** Output keys and states in human readable format
  */
 void KFState::outputStates(
-    Trace& output,  ///< Trace to output to
+    Trace& trace,  ///< Trace to output to
     string suffix,  ///< Suffix to append to state block info tag in trace files
     int    begX,    ///< Index of first state element to process
     int    numX     ///< Number of state elements to process
 )
 {
-    tracepdeex(1, output, "\n");
+    tracepdeex(1, trace, "\n");
 
     string name = "STATES";
     name += suffix;
 
-    InteractiveTerminal trace(name, output);
-    Block               block(trace, name);
+    Block block(trace, name);
 
     tracepdeex(
         1,

@@ -1,0 +1,14 @@
+{
+    "cmake.sourceDirectory": "/workspaces/ginan/src",
+    "cmake.buildDirectory": "${workspaceFolder}/src/build-{buildType}",
+    "cmake.configureSettings": {
+        "CMAKE_TOOLCHAIN_FILE": "/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "VCPKG_MANIFEST_DIR": "${workspaceFolder}",
+        "VCPKG_INSTALLED_DIR": "${workspaceFolder}/vcpkg_installed"
+    },
+    "cmake.configureOnOpen": true,
+    "cmake.generator": "Ninja",
+    "cmake.useCMakePresets": "always",
+    "cmake.allowUnsupportedPresetsVersions": true
+}

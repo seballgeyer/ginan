@@ -13,7 +13,6 @@
 #include "common/eigenIncluder.hpp"
 #include "common/enums.h"
 #include "common/ephPrecise.hpp"
-#include "common/interactiveTerminal.hpp"
 #include "common/ionModels.hpp"
 #include "common/navigation.hpp"
 #include "common/receiver.hpp"
@@ -272,107 +271,103 @@ bool validateDOP(
 
 void printFailures(const string& id, ObsList& obsList)
 {
-    InteractiveTerminal ss(string("Failures/") + id, nullStream);
+    tracepdeex(4, std::cout, "\nFailures:");
+    tracepdeex(4, std::cout, "\n%20s ", "");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%c", obs.Sat.sysChar());
+    tracepdeex(4, std::cout, "\n%20s ", "");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", obs.Sat.prn / 10 % 10);
+    tracepdeex(4, std::cout, "\n%20s ", "");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", obs.Sat.prn % 10);
 
-    tracepdeex(4, ss, "\nFailures:");
-    tracepdeex(4, ss, "\n%20s ", "");
+    tracepdeex(4, std::cout, "\n%20s:", "failExclude");
     for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%c", obs.Sat.sysChar());
-    tracepdeex(4, ss, "\n%20s ", "");
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureExclude);
+    tracepdeex(4, std::cout, "\n%20s:", "failNoSatPos");
     for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", obs.Sat.prn / 10 % 10);
-    tracepdeex(4, ss, "\n%20s ", "");
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureNoSatPos);
+    tracepdeex(4, std::cout, "\n%20s:", "failNoSatClock");
     for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", obs.Sat.prn % 10);
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureNoSatClock);
+    tracepdeex(4, std::cout, "\n%20s:", "failNoPseudorange");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureNoPseudorange);
+    tracepdeex(4, std::cout, "\n%20s:", "failIodeConsistency");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureIodeConsistency);
+    tracepdeex(4, std::cout, "\n%20s:", "failBroadcastEph");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureBroadcastEph);
+    tracepdeex(4, std::cout, "\n%20s:", "failRSat");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureRSat);
+    tracepdeex(4, std::cout, "\n%20s:", "failSSRFail");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSSRFail);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrPosEmpty");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrPosEmpty);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrClkEmpty");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrClkEmpty);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrPosTime");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrPosTime);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrClkTime");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrClkTime);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrPosMag");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrPosMag);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrClkMag");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrClkMag);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrPosUdi");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrPosUdi);
+    tracepdeex(4, std::cout, "\n%20s:", "failSsrClkUdi");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureSsrClkUdi);
+    tracepdeex(4, std::cout, "\n%20s:", "failGeodist");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureGeodist);
+    tracepdeex(4, std::cout, "\n%20s:", "failElevation");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureElevation);
+    tracepdeex(4, std::cout, "\n%20s:", "failPrange");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failurePrange);
+    tracepdeex(4, std::cout, "\n%20s:", "failIonocorr");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.failureIonocorr);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeElevation");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeElevation);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeEclipse");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeEclipse);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeSystem");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeSystem);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeOutlier");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeOutlier);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeBadSPP");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeBadSPP);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeConfig");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeConfig);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeSVH");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeSVH);
+    tracepdeex(4, std::cout, "\n%20s:", "excludeBadRange");
+    for (auto& obs : only<GObs>(obsList))
+        tracepdeex(4, std::cout, "%d", (bool)obs.excludeBadRange);
 
-    tracepdeex(4, ss, "\n%20s:", "failExclude");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureExclude);
-    tracepdeex(4, ss, "\n%20s:", "failNoSatPos");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureNoSatPos);
-    tracepdeex(4, ss, "\n%20s:", "failNoSatClock");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureNoSatClock);
-    tracepdeex(4, ss, "\n%20s:", "failNoPseudorange");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureNoPseudorange);
-    tracepdeex(4, ss, "\n%20s:", "failIodeConsistency");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureIodeConsistency);
-    tracepdeex(4, ss, "\n%20s:", "failBroadcastEph");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureBroadcastEph);
-    tracepdeex(4, ss, "\n%20s:", "failRSat");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureRSat);
-    tracepdeex(4, ss, "\n%20s:", "failSSRFail");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSSRFail);
-    tracepdeex(4, ss, "\n%20s:", "failSsrPosEmpty");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrPosEmpty);
-    tracepdeex(4, ss, "\n%20s:", "failSsrClkEmpty");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrClkEmpty);
-    tracepdeex(4, ss, "\n%20s:", "failSsrPosTime");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrPosTime);
-    tracepdeex(4, ss, "\n%20s:", "failSsrClkTime");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrClkTime);
-    tracepdeex(4, ss, "\n%20s:", "failSsrPosMag");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrPosMag);
-    tracepdeex(4, ss, "\n%20s:", "failSsrClkMag");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrClkMag);
-    tracepdeex(4, ss, "\n%20s:", "failSsrPosUdi");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrPosUdi);
-    tracepdeex(4, ss, "\n%20s:", "failSsrClkUdi");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureSsrClkUdi);
-    tracepdeex(4, ss, "\n%20s:", "failGeodist");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureGeodist);
-    tracepdeex(4, ss, "\n%20s:", "failElevation");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureElevation);
-    tracepdeex(4, ss, "\n%20s:", "failPrange");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failurePrange);
-    tracepdeex(4, ss, "\n%20s:", "failIonocorr");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.failureIonocorr);
-    tracepdeex(4, ss, "\n%20s:", "excludeElevation");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeElevation);
-    tracepdeex(4, ss, "\n%20s:", "excludeEclipse");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeEclipse);
-    tracepdeex(4, ss, "\n%20s:", "excludeSystem");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeSystem);
-    tracepdeex(4, ss, "\n%20s:", "excludeOutlier");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeOutlier);
-    tracepdeex(4, ss, "\n%20s:", "excludeBadSPP");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeBadSPP);
-    tracepdeex(4, ss, "\n%20s:", "excludeConfig");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeConfig);
-    tracepdeex(4, ss, "\n%20s:", "excludeSVH");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeSVH);
-    tracepdeex(4, ss, "\n%20s:", "excludeBadRange");
-    for (auto& obs : only<GObs>(obsList))
-        tracepdeex(4, ss, "%d", (bool)obs.excludeBadRange);
-
-    tracepdeex(4, ss, "\n\n");
-
-    BOOST_LOG_TRIVIAL(debug) << ss.str();
+    tracepdeex(4, std::cout, "\n\n");
 }
 
 void removeUnmeasuredStates(

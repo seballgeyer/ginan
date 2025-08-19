@@ -172,16 +172,39 @@ find_package(Boost 1.73.0 REQUIRED COMPONENTS log log_setup date_time system thr
 find_package(Eigen3 3.3.0)
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
-find_package(mongocxx	REQUIRED)
-find_package(bsoncxx	REQUIRED)
+find_package(mongocxx)
+find_package(bsoncxx)
+if (mongocxx_FOUND AND bsoncxx_FOUND)
+	message(STATUS "Found Mongocxx library:   " ${mongocxx_VERSION})
+	
+	# Create a generic mongocxx target that points to whatever is available
+	set(MONGOCXX_TARGET_FOUND FALSE)
+	
+	# Try static first, then shared
+	if (TARGET mongo::mongocxx_static)
+		message(STATUS "  Using mongo::mongocxx_static")
+		add_library(mongo::genericcxx ALIAS mongo::mongocxx_static)
+		set(MONGOCXX_TARGET_FOUND TRUE)
+	elseif (TARGET mongo::mongocxx_shared)
+		message(STATUS "  Using mongo::mongocxx_shared")
+		add_library(mongo::genericcxx ALIAS mongo::mongocxx_shared)
+		set(MONGOCXX_TARGET_FOUND TRUE)
+	endif()
+	
+	if (NOT MONGOCXX_TARGET_FOUND)
+		message(WARNING "mongocxx found but no usable targets available")
+		set(mongocxx_FOUND FALSE)
+	endif()
+else()
+	message(STATUS "Mongocxx library not found, skip compiling loading packages.")
+endif()
+
 set(NETCDF_CXX "YES")
 find_package(NetCDF)
 if (NOT NetCDF_FOUND)
 	message(STATUS "NetCDF library not found, skip compiling loading packages.")
 endif()
 
-find_package(Curses REQUIRED)
-message(STATUS "Found curses library:     " ${CURSES_LIBRARY} , ${CURSES_INCLUDE_DIR})
 
 # message(STATUS "...NETCDF     >>>>>>   ${NETCDF_LIBRARIES}     ${NETCDF_INCLUDES}" )
 # message(STATUS "...NETCDF_C++ >>>>>>   ${NETCDF_LIBRARIES_CXX} ${NETCDF_INCLUDES_CXX}" )

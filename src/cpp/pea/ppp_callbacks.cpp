@@ -4,7 +4,6 @@
 #include <sstream>
 #include "common/acsConfig.hpp"
 #include "common/algebra.hpp"
-#include "common/interactiveTerminal.hpp"
 #include "common/receiver.hpp"
 #include "common/satStat.hpp"
 #include "pea/ppp.hpp"
@@ -34,8 +33,6 @@ bool deweightMeas(RejectCallbackDetails rejectDetails)
         deweightFactor = acsConfig.measErrors.deweight_factor;
 
     auto& key = kfMeas.obsKeys[measIndex];
-
-    InteractiveTerminal ss("Deweights", trace, false);
 
     double preSigma = sqrt(kfMeas.R(measIndex, measIndex));
     double residual;

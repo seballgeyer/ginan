@@ -1,0 +1,30 @@
+[
+  {
+    "name": "Linux Dynamic (vcpkg)",
+    "toolchainFile": "/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "cmakeSettings": {
+      "VCPKG_TARGET_TRIPLET": "x64-linux",
+      "VCPKG_MANIFEST_DIR": "${workspaceFolder}",
+      "VCPKG_INSTALLED_DIR": "${workspaceFolder}/vcpkg_installed"
+    }
+  },
+  {
+    "name": "Linux Static (vcpkg)",
+    "toolchainFile": "/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "cmakeSettings": {
+      "VCPKG_TARGET_TRIPLET": "x64-linux-static",
+      "VCPKG_MANIFEST_DIR": "${workspaceFolder}",
+      "VCPKG_INSTALLED_DIR": "${workspaceFolder}/vcpkg_installed"
+    }
+  },
+  {
+    "name": "Windows MinGW Static (vcpkg)",
+    "toolchainFile": "/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "cmakeSettings": {
+      "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
+      "VCPKG_MANIFEST_DIR": "${workspaceFolder}",
+      "VCPKG_INSTALLED_DIR": "${workspaceFolder}/vcpkg_installed",
+      "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "/usr/local/share/cmake-windows.cmake"
+    }
+  }
+]

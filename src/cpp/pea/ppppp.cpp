@@ -12,7 +12,6 @@
 #include "common/algebra.hpp"
 #include "common/common.hpp"
 #include "common/eigenIncluder.hpp"
-#include "common/interactiveTerminal.hpp"
 #include "common/metaData.hpp"
 #include "common/mongoRead.hpp"
 #include "common/mongoWrite.hpp"
@@ -88,11 +87,9 @@ void explainMeasurements(Trace& trace, KFMeas& kfMeas, KFState& kfState)
             continue;
         }
 
-        InteractiveTerminal output((string) "Partials/" + (string)obsKey, trace);
-
-        output << "\n"
+        trace << "\n"
                << "============================";
-        output << "\n"
+        trace << "\n"
                << "Explaining " << obsKey << " : " << obsKey.comment;
 
         for (auto duo :
@@ -101,7 +98,7 @@ void explainMeasurements(Trace& trace, KFMeas& kfMeas, KFState& kfState)
             {
                 if (col == 0)
                 {
-                    output << "\n"
+                    trace << "\n"
                            << "============================";
                 }
 
@@ -116,16 +113,16 @@ void explainMeasurements(Trace& trace, KFMeas& kfMeas, KFState& kfState)
                 {
                     if (index == col)
                     {
-                        output << "\n";
+                        trace << "\n";
                         if (traceLevel >= 4)
-                            output << kfState.time << " " << obsKey;
+                            trace << kfState.time << " " << obsKey;
 
-                        output << kfKey << " : " << entry;
+                        trace << kfKey << " : " << entry;
                         break;
                     }
                 }
             }
-        output << "\n";
+        trace << "\n";
     }
 }
 
@@ -1752,8 +1749,6 @@ void ppp(
     // add process noise and dynamics to existing states as a prediction of current state
     if (kfState.assume_linearity == false)
     {
-        InteractiveTerminal::setMode(E_InteractiveMode::StateTransition1);
-
         BOOST_LOG_TRIVIAL(info) << " ------- DOING STATE TRANSITION       --------" << "\n";
 
         kfState.stateTransition(trace, tsync);
@@ -1779,8 +1774,6 @@ void ppp(
     }
 
     {
-        InteractiveTerminal::setMode(E_InteractiveMode::OMCCalculations);
-
         BOOST_LOG_TRIVIAL(info) << " ------- CALCULATING PPP MEASUREMENTS --------" << "\n";
 
         // calculate the measurements for each receiver
@@ -1826,8 +1819,6 @@ void ppp(
     }
 
     // use state transition to initialise new state elements
-    InteractiveTerminal::setMode(E_InteractiveMode::StateTransition2);
-
     BOOST_LOG_TRIVIAL(info) << " ------- DOING STATE TRANSITION       --------" << "\n";
 
     kfState.stateTransition(trace, tsync);
@@ -1876,7 +1867,6 @@ void ppp(
 
     chunkFilter(trace, kfState, kfMeas, receiverMap, filterChunkMap, traceList);
 
-    InteractiveTerminal::setMode(E_InteractiveMode::Filtering);
     BOOST_LOG_TRIVIAL(info) << " ------- DOING PPPPP KALMAN FILTER    --------" << "\n";
 
     kfState.filterKalman(trace, kfMeas, "/PPP", true, &filterChunkMap);

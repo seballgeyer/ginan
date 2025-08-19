@@ -1,0 +1,117 @@
+name: Multi-Platform Build
+
+on:
+  workflow_dispatch:  # Manual triggering only
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        preset: [linux-static-vcpkg]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y ninja-build
+    
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgJsonGlob: 'vcpkg.json'
+    
+    - name: Configure CMake
+      run: |
+        cd src
+        cmake --preset ${{ matrix.preset }}
+    
+    - name: Build
+      run: |
+        cd src
+        cmake --build --preset ${{ matrix.preset }}
+    
+    - name: Upload Linux binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-binaries-${{ matrix.preset }}
+        path: |
+          bin/*
+
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        preset: [ windows-release-vcpkg ]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgJsonGlob: 'vcpkg.json'
+    
+    - name: Configure CMake
+      run: |
+        cd src
+        cmake --preset ${{ matrix.preset }}
+      shell: cmd
+    
+    - name: Build
+      run: |
+        cd src
+        cmake --build --preset ${{ matrix.preset }}
+      shell: cmd
+    
+    - name: Upload Windows binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-binaries-${{ matrix.preset }}
+        path: |
+          bin/*.exe
+          bin/*.dll
+
+  # build-macos:
+  #   # Only run macOS builds on release or manual trigger to save costs
+  #   if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+  #   runs-on: macos-latest
+  #   strategy:
+  #     matrix:
+  #       preset: [macos-arm64-vcpkg, macos-x64-vcpkg]
+    
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #     with:
+  #       submodules: recursive
+    
+  #   - name: Setup vcpkg
+  #     uses: microsoft/setup-vcpkg@v1
+  #     with:
+  #       vcpkg-version: 'latest'
+    
+  #   - name: Configure CMake
+  #     run: |
+  #       cd src
+  #       cmake --preset ${{ matrix.preset }}
+    
+  #   - name: Build
+  #     run: |
+  #       cd src
+  #       cmake --build --preset ${{ matrix.preset }}
+    
+  #   - name: Upload macOS binaries
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: macos-binaries-${{ matrix.preset }}
+  #       path: |
+  #         bin/*

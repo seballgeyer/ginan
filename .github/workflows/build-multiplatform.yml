@@ -53,6 +53,11 @@ jobs:
       with:
         submodules: recursive
     
+    - name: Install LLVM (includes OpenMP)
+      run: |
+        choco install llvm --version 18.1.8 -y
+        refreshenv
+    
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
     
@@ -64,6 +69,7 @@ jobs:
     - name: Configure CMake
       run: |
         cd src
+        set "PATH=C:\Program Files\LLVM\bin;%PATH%"
         cmake --preset ${{ matrix.preset }}
       shell: cmd
     

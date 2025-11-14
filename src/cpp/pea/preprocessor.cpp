@@ -1,5 +1,8 @@
 // #pragma GCC optimize ("O0")
 
+#include <algorithm>
+#include <map>
+#include <set>
 #include "ambres/GNSSambres.hpp"
 #include "architectureDocs.hpp"
 #include "common/acsConfig.hpp"
@@ -40,45 +43,443 @@ Architecture Preprocessing__()
 #include "orbprop/coordinates.hpp"
 #include "pea/ppp.hpp"
 
-void outputObservations(Trace& trace, Trace& jsonTrace, ObsList& obsList)
+// Observation status for signal tracking
+enum class E_ObsStatus
 {
-    for (auto& obs : only<GObs>(obsList))
-        for (auto& [ft, sigs] : obs.sigsLists)
-            for (auto& sig : sigs)
+    OBSERVED,      // Signal was observed by receiver (both code and phase)
+    CODE_ONLY,     // Only code measurement available
+    PHASE_ONLY,    // Only phase measurement available (this is unlikely as code is demodulated first and then try to extract phase)
+    MISSING,       // Signal was expected, and we have other signals for this sat, but this one was not in rinex
+    NOT_TRACKED    // Satellite not observed at all (above elevation mask but not in observation data)
+};
+
+// Convert observation status to string
+const char* obsStatusToString(E_ObsStatus status)
+{
+    switch (status)
+    {
+        case E_ObsStatus::OBSERVED:    return "OBSERVED";
+        case E_ObsStatus::CODE_ONLY:   return "CODE_ONLY";
+        case E_ObsStatus::PHASE_ONLY:  return "PHASE_ONLY";
+        case E_ObsStatus::MISSING:     return "MISSING";
+        case E_ObsStatus::NOT_TRACKED: return "NOT_TRACKED";
+        default:                       return "UNKNOWN";
+    }
+}
+
+struct SatelliteVisibility
+{
+    SatSys sat;
+    double el = 0;      // Elevation in radians
+    double az = 0;      // Azimuth in radians
+    set<E_ObsCode> expectedSignals;
+    bool wasObserved = false;
+    GObs* obs = nullptr;  // Pointer to observation if satellite was observed
+};
+
+// Observation record for output
+struct ObservationRecord
+{
+    GTime time;
+    SatSys sat;
+    string recId;
+    E_ObsCode code;
+    double P = 0;
+    double L = 0;
+    double snr = 0;
+    double el_deg = 0;
+    double az_deg = 0;
+    E_ObsStatus status;
+    string blockType;
+};
+
+// Output a single observation record to trace files
+void obsRec(Trace& trace, Trace& jsonTrace, const ObservationRecord& rec)
+{
+    const char* statusStr = obsStatusToString(rec.status);
+    GTime time = rec.time;  // Make mutable copy for traceJson (expects non-const reference)
+
+    // Determine which values to show based on status
+    bool hasCode = (rec.status == E_ObsStatus::OBSERVED || rec.status == E_ObsStatus::CODE_ONLY);
+    bool hasPhase = (rec.status == E_ObsStatus::OBSERVED || rec.status == E_ObsStatus::PHASE_ONLY);
+    bool hasSnr = (rec.status == E_ObsStatus::OBSERVED || rec.status == E_ObsStatus::CODE_ONLY || rec.status == E_ObsStatus::PHASE_ONLY);
+
+    // Format values as strings (without width specifiers - will be applied in tracepdeex format)
+    char pStr[32], lStr[32], sStr[32];
+    if (hasCode)    snprintf(pStr, sizeof(pStr), "%.6f", rec.P);
+    else            snprintf(pStr, sizeof(pStr), "%s", "NaN");
+
+    if (hasPhase)   snprintf(lStr, sizeof(lStr), "%.6f", rec.L);
+    else            snprintf(lStr, sizeof(lStr), "%s", "NaN");
+
+    if (hasSnr)     snprintf(sStr, sizeof(sStr), "%.2f", rec.snr);
+    else            snprintf(sStr, sizeof(sStr), "%s", "NaN");
+
+    tracepdeex(
+        0,
+        trace,
+        "\n%s: epoch= %s sat= %5s sig= %5s P= %16s L= %16s S= %8s el= %6.2f az= %6.2f block= %12s status= %s",
+        __FUNCTION__,
+        rec.time.to_string().c_str(),
+        rec.sat.id().c_str(),
+        rec.code._to_string(),
+        pStr,
+        lStr,
+        sStr,
+        rec.el_deg,
+        rec.az_deg,
+        rec.blockType.c_str(),
+        statusStr
+    );
+
+    // Output JSON trace - always include all fields, use NaN for unavailable measurements
+    traceJson(
+        0,
+        jsonTrace,
+        time,
+        {{"data", "observations"},
+         {"Sat", rec.sat.id()},
+         {"Rec", rec.recId},
+         {"Sig", rec.code._to_string()}},
+        {
+            {"SNR", hasSnr ? rec.snr : std::nan("")},
+            {"L", hasPhase ? rec.L : std::nan("")},
+            {"P", hasCode ? rec.P : std::nan("")},
+            {"D", 0.0},  // Not stored in record currently
+            {"el", rec.el_deg},
+            {"az", rec.az_deg},
+            {"blockType", rec.blockType},
+            {"status", statusStr}
+        }
+    );
+}
+
+// Classify observed signals vs expected signals
+void classifySignals(
+    GObs* obs,
+    const set<E_ObsCode>& expectedSignals,
+    double el_deg,
+    double az_deg,
+    vector<ObservationRecord>& records)
+{
+    set<E_ObsCode> observedSignals;
+    string blockType = obs->Sat.blockType();
+
+    // Collect OBSERVED signals
+    for (auto& [ft, sigs] : obs->sigsLists)
+    {
+        for (auto& sig : sigs)
+        {
+            // Only process signals that are in expectedSignals (already filtered by code_priorities)
+            if (expectedSignals.find(sig.code) == expectedSignals.end())
             {
-                if (obs.exclude)
-                {
-                    continue;
-                }
-
-                tracepdeex(
-                    4,
-                    trace,
-                    "\n%s %5s %5s %14.4f %14.4f",
-                    obs.time.to_string().c_str(),
-                    obs.Sat.id().c_str(),
-                    sig.code._to_string(),
-                    sig.L,
-                    sig.P
-                );
-
-                traceJson(
-                    4,
-                    jsonTrace,
-                    obs.time,
-                    {{"data", "observations"},
-                     {"Sat", obs.Sat.id()},
-                     {"Rec", obs.mount},
-                     {"Sig", sig.code._to_string()}},
-                    {
-                        {"SNR", sig.snr},
-                        {"L", sig.L},
-                        {"P", sig.P},
-                        {"D", sig.D},
-                        // {"LLI", sig.lli},
-                    }
-                );
+                continue;
             }
+
+            observedSignals.insert(sig.code);
+
+            ObservationRecord rec;
+            rec.time = obs->time;
+            rec.sat = obs->Sat;
+            rec.recId = obs->mount;
+            rec.code = sig.code;
+            rec.P = sig.P;
+            rec.L = sig.L;
+            rec.snr = sig.snr;
+            rec.el_deg = el_deg;
+            rec.az_deg = az_deg;
+
+            // Determine status based on which measurements are available
+            bool hasCode = (sig.P != 0);
+            bool hasPhase = (sig.L != 0);
+
+            if (hasCode && hasPhase)
+            {
+                rec.status = E_ObsStatus::OBSERVED;
+            }
+            else if (hasCode && !hasPhase)
+            {
+                rec.status = E_ObsStatus::CODE_ONLY;
+            }
+            else if (!hasCode && hasPhase)
+            {
+                rec.status = E_ObsStatus::PHASE_ONLY;
+            }
+            else
+            {
+                rec.status = E_ObsStatus::MISSING;
+            }
+
+            rec.blockType = blockType;
+            records.push_back(rec);
+        }
+    }
+
+    // Collect MISSING signals (expected but not observed)
+    for (auto& expectedCode : expectedSignals)
+    {
+        if (observedSignals.find(expectedCode) == observedSignals.end())
+        {
+            ObservationRecord rec;
+            rec.time = obs->time;
+            rec.sat = obs->Sat;
+            rec.recId = obs->mount;
+            rec.code = expectedCode;
+            rec.el_deg = el_deg;
+            rec.az_deg = az_deg;
+            rec.status = E_ObsStatus::MISSING;
+            rec.blockType = blockType;
+            records.push_back(rec);
+        }
+    }
+}
+
+// Create NOT_TRACKED records for a satellite that was not observed
+void createNotTrackedRecords(
+    GTime time,
+    SatSys sat,
+    string recId,
+    const set<E_ObsCode>& expectedSignals,
+    double el_deg,
+    double az_deg,
+    vector<ObservationRecord>& records)
+{
+    string blockType = sat.blockType();
+
+    for (auto& expectedCode : expectedSignals)
+    {
+        ObservationRecord rec;
+        rec.time = time;
+        rec.sat = sat;
+        rec.recId = recId;
+        rec.code = expectedCode;
+        rec.el_deg = el_deg;
+        rec.az_deg = az_deg;
+        rec.status = E_ObsStatus::NOT_TRACKED;
+        rec.blockType = blockType;
+        records.push_back(rec);
+    }
+}
+
+// Compute satellite position and elevation/azimuth
+// Returns true if position was successfully computed
+bool computeSatellitePosition(
+    Trace& trace,
+    GTime time,
+    SatSys sat,
+    SatNav& satNav,
+    Receiver& rec,
+    VectorPos& recPos,
+    GObs* obs,  // If satellite was observed, use existing obs; otherwise nullptr
+    double& el,
+    double& az)
+{
+    auto& satStat = rec.satStatMap[sat];
+    auto& satOpts = acsConfig.getSatOpts(sat);
+
+    // If satellite was observed, use pre-computed position
+    if (obs && obs->satStat_ptr)
+    {
+        el = obs->satStat_ptr->el;
+        az = obs->satStat_ptr->az;
+        return true;
+    }
+
+    // Satellite not observed - compute position ourselves
+    //  For NOT_TRACKED detection, we only need satellite position, not clock or pseudorange
+    SatPos satPos = {};
+    satPos.Sat = sat;
+    satPos.satNav_ptr = &satNav;
+
+    bool posFound = satpos(
+        trace,
+        time,
+        time,  // teph = time
+        satPos,
+        satOpts.posModel.sources,
+        E_OffsetType::APC,
+        nav
+    );
+
+    if (!posFound || satPos.rSatApc.isZero())
+    {
+        return false;
+    }
+
+    Vector3d rSat = satPos.rSatApc;
+
+    Vector3d e;
+    double r = geodist(rSat, rec.aprioriPos, e);
+    satazel(recPos, e, satStat);
+    el = satStat.el;
+    az = satStat.az;
+    return true;
+}
+
+// Determine expected signals for a satellite-receiver pair
+// Returns the intersection of: (satellite frequencies) AND (receiver tracked signals) AND (code priorities)
+set<E_ObsCode> determineExpectedSignals(
+    SatSys sat,
+    Receiver& rec)
+{
+    set<E_ObsCode> expectedSignals;
+
+    // Get satellite block type and convert to enum
+    string blockTypeStr = sat.blockType();
+    if (blockTypeStr.empty())
+    {
+        return expectedSignals;  // Unknown block type
+    }
+
+    string enumStr = blockTypeStr;
+    std::replace(enumStr.begin(), enumStr.end(), '-', '_');
+
+    auto blockOpt = E_Block::_from_string_nothrow(enumStr.c_str());
+    if (!blockOpt)
+    {
+        return expectedSignals;  // Unknown block type
+    }
+
+    // Get frequencies that this satellite broadcasts
+    auto freqIt = blockTypeFrequencies.find(*blockOpt);
+    if (freqIt == blockTypeFrequencies.end())
+    {
+        return expectedSignals;  // Block type not found
+    }
+
+    vector<E_FType> satFrequencies = freqIt->second;
+
+    // Convert to set for faster lookup
+    set<E_FType> satFreqSet(satFrequencies.begin(), satFrequencies.end());
+
+    // Get receiver's tracked signals for this constellation
+    auto trackedIt = rec.trackedSignals.find(sat.sys);
+    if (trackedIt == rec.trackedSignals.end())
+    {
+        return expectedSignals;
+    }
+
+    auto& receiverSignals = trackedIt->second;
+    auto& codePriorities = acsConfig.code_priorities[sat.sys];
+
+    // Get code2Freq map for this constellation
+    auto sysCodeIt = code2Freq.find(sat.sys);
+    if (sysCodeIt == code2Freq.end())
+    {
+        return expectedSignals;
+    }
+
+    // Find receiver signals that match satellite frequencies AND are in code priorities
+    for (auto& recSig : receiverSignals)
+    {
+        // Use code2Freq to get frequency type for this signal
+        auto codeIt = sysCodeIt->second.find(recSig);
+        if (codeIt != sysCodeIt->second.end())
+        {
+            E_FType sigFreq = codeIt->second;
+
+            // Check if satellite broadcasts this frequency AND signal is in code priorities
+            bool inSatFreqs = satFreqSet.count(sigFreq);
+            bool inCodePriorities = std::find(codePriorities.begin(), codePriorities.end(), recSig) != codePriorities.end();
+
+            // Filter out signals not supported by this block type (e.g., L2C not on older GPS blocks)
+            // This prevents false "MISSING" reports for signals that a satellite block type
+            // physically cannot transmit.
+            bool supportedByBlock = isSignalSupportedByBlockType(recSig, *blockOpt);
+
+            if (inSatFreqs && inCodePriorities && supportedByBlock)
+            {
+                expectedSignals.insert(recSig);
+            }
+        }
+    }
+
+    return expectedSignals;
+}
+
+void outputObservations(Trace& trace, Trace& jsonTrace, ObsList& obsList, Receiver& rec, VectorPos& recPos)
+{
+    if (obsList.empty())
+    {
+        return;
+    }
+
+    GTime time = obsList.front()->time;
+    auto& recOpts = acsConfig.getRecOpts(rec.id);
+    double elevationMask = recOpts.elevation_mask_deg * D2R;
+
+    // Build map of satellites that were observed in RINEX
+    map<SatSys, GObs*> observedSatMap;
+    for (auto& obs : only<GObs>(obsList))
+    {
+        if (obs.exclude == false)
+        {
+            observedSatMap[obs.Sat] = &obs;
+        }
+    }
+
+    // Iterate through ALL satellites with available ephemeris
+    for (auto& [sat, satNav] : nav.satNavMap)
+    {
+        // Check if this satellite system is being processed
+        if (acsConfig.process_sys[sat.sys] == false)
+        {
+            continue;
+        }
+
+        auto& satOpts = acsConfig.getSatOpts(sat);
+        if (satOpts.exclude)
+        {
+            continue;
+        }
+
+        // Check if satellite was observed
+        auto obsIt = observedSatMap.find(sat);
+        GObs* obs = (obsIt != observedSatMap.end()) ? obsIt->second : nullptr;
+
+        // Compute satellite position and elevation/azimuth
+        double el = 0, az = 0;
+        if (!computeSatellitePosition(trace, time, sat, satNav, rec, recPos, obs, el, az))
+        {
+            continue;  // Position not available
+        }
+
+        // Determine expected signals for this satellite-receiver pair
+        set<E_ObsCode> expectedSignals = determineExpectedSignals(sat, rec);
+        if (expectedSignals.empty())
+        {
+            continue;  // No matching signals
+        }
+
+        // For satellites NOT observed, only output if above elevation mask
+        if (!obs && el < elevationMask)
+        {
+            continue;
+        }
+
+        double el_deg = el * R2D;
+        double az_deg = az * R2D;
+
+        // Classify signals and create observation records
+        vector<ObservationRecord> records;
+
+        if (obs)
+        {
+            // Satellite was observed - classify as OBSERVED or MISSING
+            classifySignals(obs, expectedSignals, el_deg, az_deg, records);
+        }
+        else
+        {
+            // Satellite was NOT observed - all expected signals are NOT_TRACKED
+            createNotTrackedRecords(time, sat, rec.id, expectedSignals, el_deg, az_deg, records);
+        }
+
+        // Output all records to trace files
+        for (const auto& record : records)
+        {
+            obsRec(trace, jsonTrace, record);
+        }
+    }
 }
 
 void obsVariances(ObsList& obsList)
@@ -330,7 +731,10 @@ void preprocessor(
 
     excludeUnprocessed(obsList);
 
-    outputObservations(trace, jsonTrace, obsList);
+    if (acsConfig.output_observations)
+    {
+        outputObservations(trace, jsonTrace, obsList, rec, pos);
+    }
 
     /* linear combinations */
     for (auto& obs : only<GObs>(obsList))

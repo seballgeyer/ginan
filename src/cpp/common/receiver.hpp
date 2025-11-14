@@ -9,6 +9,8 @@
 #include "common/satStat.hpp"
 #include "pea/ppp.hpp"
 
+struct Parser;
+
 /** Solution of user mode processing functinos
  */
 struct Solution
@@ -124,6 +126,9 @@ struct Receiver : ReceiverLogs, Rtk
 
     map<SatSys, GTime> savedSlips;
 
+    // Receiver-specific signal tracking capabilities from RINEX header
+    map<E_Sys, vector<E_ObsCode>> trackedSignals;
+
     union
     {
         const unsigned int failure = 0;
@@ -144,6 +149,8 @@ struct ReceiverMap : map<string, Receiver>
 };
 
 extern ReceiverMap receiverMap;
+
+void extractTrackedSignals(Receiver& rec, Parser& parser, ObsList* obsList = nullptr);
 
 struct Network
 {

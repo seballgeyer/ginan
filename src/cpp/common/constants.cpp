@@ -3,11 +3,14 @@
 #include <boost/assign.hpp>
 #include <iostream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include "common/enums.h"
+#include "common/satSys.hpp"
 
 using std::map;
+using std::set;
 
 map<E_FType, double> genericWavelength = {
     {F1, CLIGHT / FREQ1},
@@ -132,6 +135,102 @@ map<E_Sys, map<E_ObsCode, E_FType>> code2Freq = {
 
       {E_ObsCode::L5I, F5},    {E_ObsCode::L5Q, F5}, {E_ObsCode::L5X, F5}}}
 };
+
+// Map satellite block types to their broadcast frequency bands
+// Based on RINEX 4.02 specification and satellite constellation signal plans
+map<E_Block, vector<E_FType>> blockTypeFrequencies = {
+    // GPS Block Types
+    {E_Block::GPS_I,      {F1, F2}},           // L1, L2
+    {E_Block::GPS_II,     {F1, F2}},           // L1, L2
+    {E_Block::GPS_IIA,    {F1, F2}},           // L1, L2
+    {E_Block::GPS_IIR_A,  {F1, F2}},           // L1, L2
+    {E_Block::GPS_IIR_B,  {F1, F2}},           // L1, L2
+    {E_Block::GPS_IIR_M,  {F1, F2}},           // L1, L2
+    {E_Block::GPS_IIF,    {F1, F2, F5}},       // L1, L2, L5
+    {E_Block::GPS_IIIA,   {F1, F2, F5}},       // L1, L2, L5
+
+    // GLONASS Block Types
+    {E_Block::GLO_M,      {G1, G2}},             // G1, G2
+    {E_Block::GLO,        {G1, G2}},             // G1, G2
+    {E_Block::GLO_K1A,    {G1, G2}},             // G1, G2
+    {E_Block::GLO_K1B,    {G1, G2, G3}},         // G1, G2, G3
+    {E_Block::GLO_K2,     {G1, G2, G3, G4, G6}}, // G1, G2, G3, G4, G6
+    {E_Block::GLO_MP,     {G1, G2, G3}},         // G1, G2, G3
+
+    // Galileo Block Types
+    {E_Block::GAL_0A,     {F1, F5, F7, F8, F6}},  // E1, E5a, E5b, E5, E6
+    {E_Block::GAL_0B,     {F1, F5, F7, F8, F6}},  // E1, E5a, E5b, E5, E6
+    {E_Block::GAL_1,      {F1, F5, F7, F8, F6}},  // E1, E5a, E5b, E5, E6
+    {E_Block::GAL_2,      {F1, F5, F7, F8, F6}},  // E1, E5a, E5b, E5, E6
+
+    // BeiDou Block Types
+    // BDS-2: B1I, B2I, B3I
+    // Note: RINEX uses L2 designation for B1I (B1=1561.098 MHz), L7 for B2I, L6 for B3I
+    {E_Block::BDS_2M,     {B1, F7, B3}},
+    {E_Block::BDS_2G,     {B1, F7, B3}},
+    {E_Block::BDS_2I,     {B1, F7, B3}},
+
+    // BDS-3: B1I, B1C, B2a, B2I, B2(a+b), B3I
+    // Note: RINEX uses L2 for B1I, L1 for B1C, L5 for B2a, L7 for B2I, L8 for B2(a+b), L6 for B3I
+    {E_Block::BDS_3SI_SECM,  {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3SM_CAST,  {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3SI_CAST,  {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3SM_SECM,  {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3M_CAST,   {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3M_SECM_A, {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3G,        {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3I,        {B1, F1, F5, F7, F8, B3}},
+    {E_Block::BDS_3M_SECM_B, {B1, F1, F5, F7, F8, B3}},
+
+    // QZSS Block Types
+    {E_Block::QZS_1,      {F1, F2, F5}},       // L1, L2, L5
+    {E_Block::QZS_2I,     {F1, F2, F5, F6}},   // L1, L2, L5, L6
+    {E_Block::QZS_2G,     {F1, F2, F5, F6}},   // L1, L2, L5, L6
+    {E_Block::QZS_2A,     {F1, F2, F5, F6}},   // L1, L2, L5, L6
+
+    // NavIC/IRNSS Block Types
+    {E_Block::IRS_1I,     {F5, I9}},           // L5, S9
+    {E_Block::IRS_1G,     {F5, I9}},           // L5, S9
+    {E_Block::IRS_2G,     {F5, I9}},           // L5, S9
+
+    // SBAS Block Types
+    {E_Block::SBS,        {F1, F5}},           // L1, L5
+
+    // LEO Block Types
+    {E_Block::LEO,        {F1, F2, F5}},       // L1, L2, L5
+};
+
+// Map of block types to their unsupported signal codes
+// Background: GPS satellites have evolved their signal capabilities over time:
+// - Older blocks (I, II, IIA, IIR-A, IIR-B): Only legacy L2 signals (L2P, L2W, L2Y)
+// - IIR-M and newer (IIF, IIIA): Added modernised L2C signals (L2C, L2S, L2L, L2X)
+//
+// This map lists signals that are NOT supported by each block type.
+// If a block type is not in this map, all signals are supported (default behavior).
+static const map<E_Block, set<E_ObsCode>> unsupportedSignalsByBlockType = {
+    // Older GPS blocks do not support modernised L2C signals
+    {E_Block::GPS_I,     {E_ObsCode::L2C, E_ObsCode::L2S, E_ObsCode::L2L, E_ObsCode::L2X}},
+    {E_Block::GPS_II,    {E_ObsCode::L2C, E_ObsCode::L2S, E_ObsCode::L2L, E_ObsCode::L2X}},
+    {E_Block::GPS_IIA,   {E_ObsCode::L2C, E_ObsCode::L2S, E_ObsCode::L2L, E_ObsCode::L2X}},
+    {E_Block::GPS_IIR_A, {E_ObsCode::L2C, E_ObsCode::L2S, E_ObsCode::L2L, E_ObsCode::L2X}},
+    {E_Block::GPS_IIR_B, {E_ObsCode::L2C, E_ObsCode::L2S, E_ObsCode::L2L, E_ObsCode::L2X}},
+    // IIR-M and newer support L2C signals, so they're not in this list
+};
+
+// Filter signal codes based on block type capabilities
+// Returns true if the signal code is supported by the given block type
+bool isSignalSupportedByBlockType(E_ObsCode code, E_Block blockType)
+{
+    auto it = unsupportedSignalsByBlockType.find(blockType);
+    if (it != unsupportedSignalsByBlockType.end())
+    {
+        // Block type has restrictions - check if this signal is unsupported
+        return it->second.find(code) == it->second.end();
+    }
+
+    // Block type not in map - all signals supported (default behavior)
+    return true;
+}
 
 const unsigned int tbl_CRC24Q[] = {
     0x000000, 0x864CFB, 0x8AD50D, 0x0C99F6, 0x93E6E1, 0x15AA1A, 0x1933EC, 0x9F7F17, 0xA18139,

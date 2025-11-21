@@ -468,7 +468,6 @@ void solveSystem(
     std::vector<double> b_backup(b, b + n * neqs);
 
     // LAPACKE uses column-major order by default (LAPACK_COL_MAJOR)
-    std::cout << n << ", " << neqs << ", " << A << ", " << n << ", " << b << ", " << n << std::endl;
     info = LapackWrapper::dposv(LapackWrapper::COL_MAJOR, 'U', n, neqs, A, n, b, n);
     if (info == 0)
     {
@@ -578,12 +577,6 @@ bool FilterData::performRtsComputation(KFState& kfState, const RtsConfiguration&
         int      n    = fcM.numX;
         int      neqs = fcP.numX;
         Q += MatrixXd::Identity(fcM.numX, fcM.numX) * config.regularisation;
-
-        if (fcP.numX == 0 || fcM.numX == 0)
-        {
-            BOOST_LOG_TRIVIAL(debug) << "Ignoring  chunk " << id;
-            continue;
-        }
 
         solveSystem(fcM.numX, fcP.numX, Q.data(), FP_.data());
 

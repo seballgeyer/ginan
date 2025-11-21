@@ -40,8 +40,8 @@ inputs:
 outputs:
   metadata:
     config_description: rt_ppp_example_<HASH>
-    user: your_NTRIP_username
-    pass: your_NTRIP_password
+    user: your_ntrip_user
+    pass: your_ntrip_pass
 
   outputs_root: ./outputs/<CONFIG>
 

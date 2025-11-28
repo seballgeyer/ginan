@@ -30,7 +30,7 @@ void extractTrackedSignals(Receiver& rec, Parser& parser, ObsList* obsList)
             vector<E_ObsCode> signals;
             for (auto& [idx, codeType] : codeTypeMap)
             {
-                if (codeType.code != +E_ObsCode::NONE)
+                if (codeType.code != E_ObsCode::NONE)
                 {
                     signals.push_back(codeType.code);
                 }
@@ -60,7 +60,7 @@ void extractTrackedSignals(Receiver& rec, Parser& parser, ObsList* obsList)
             {
                 for (auto& sig : sigsList)
                 {
-                    if (sig.code != +E_ObsCode::NONE)
+                    if (sig.code != E_ObsCode::NONE)
                     {
                         signalSet.insert(sig.code);
                     }

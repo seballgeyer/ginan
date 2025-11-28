@@ -15,20 +15,20 @@ using std::ostream;
 
 const GTime j2000TT = GEpoch{
     2000,
-    E_Month::JAN,
+    static_cast<int>(E_Month::JAN),
     1,
     11,
     58,
     55.816 + GPS_SUB_UTC_2000
 };  // defined in utc 11:58:55.816
-const GTime j2000Utc = GEpoch{2000, E_Month::JAN, 1, 12, 0, 0};  // right answer, wrong reason? todo
+const GTime j2000Utc = GEpoch{2000, static_cast<int>(E_Month::JAN), 1, 12, 0, 0};  // right answer, wrong reason? todo
 
-const GTime GPS_t0 = GEpoch{1980, E_Month::JAN, 6, 0, 0, 0};     // gps time reference
+const GTime GPS_t0 = GEpoch{1980, static_cast<int>(E_Month::JAN), 6, 0, 0, 0};     // gps time reference
 const GTime GLO_t0 =
-    GEpoch{1980, E_Month::JAN, 6, 21, 0, 0};  // glo time reference (without leap seconds)
+    GEpoch{1980, static_cast<int>(E_Month::JAN), 6, 21, 0, 0};  // glo time reference (without leap seconds)
 const GTime GAL_t0 = GEpoch{
     1999,
-    E_Month::AUG,
+    static_cast<int>(E_Month::AUG),
     22,
     0,
     0,
@@ -36,7 +36,7 @@ const GTime GAL_t0 = GEpoch{
 };  // galileo system time reference as gps time -> 13 seconds before 0:00:00
     // UTC on Sunday, 22 August 1999 (midnight between 21 and 22 August)
 const GTime BDS_t0 =
-    GEpoch{2006, E_Month::JAN, 1, 0, 0, 0 + GPS_SUB_UTC_2006};  // beidou time reference as gps time
+    GEpoch{2006, static_cast<int>(E_Month::JAN), 1, 0, 0, 0 + GPS_SUB_UTC_2006};  // beidou time reference as gps time
                                                                 // - defined in utc 11:58:55.816
 
 const int    GPS_t0_sub_POSIX_t0 = 315964800;
@@ -207,7 +207,7 @@ GTime yds2time(const double* yds, E_TimeSys tsys)
         break;
         default:
         {
-            BOOST_LOG_TRIVIAL(error) << "Unsupported / Unknown time system: " << tsys._to_string()
+            BOOST_LOG_TRIVIAL(error) << "Unsupported / Unknown time system: " << enum_to_string(tsys)
                                      << ", use GPST by default." << "\n";
         }
     }
@@ -304,7 +304,7 @@ void time2epoch(GTime time, double* ep, E_TimeSys tsys)
         break;
         default:
         {
-            BOOST_LOG_TRIVIAL(error) << "Unsupported / Unknown time system: " << tsys._to_string()
+            BOOST_LOG_TRIVIAL(error) << "Unsupported / Unknown time system: " << enum_to_string(tsys)
                                      << ", use GPST by default." << "\n";
         }
     }
@@ -531,7 +531,7 @@ string GTime::gregString()
         25,
         "%02d-%3s-%04d %02d:%02d:%02d",
         (int)epoch.day,
-        E_Month::_from_integral((int)epoch.month)._to_string(),
+        enum_to_string(int_to_enum<E_Month>((int)epoch.month)).c_str(),
         (int)epoch.year,
         (int)epoch.hour,
         (int)epoch.min,

@@ -347,7 +347,7 @@ void mainOncePerEpoch(Network& pppNet, Network& ionNet, ReceiverMap& receiverMap
     BOOST_LOG_TRIVIAL(info) << " ------- PREPROCESSING STATIONS       --------" << "\n";
 
     KFState remoteState;
-    if (acsConfig.mongoOpts.use_predictions)
+    if (acsConfig.mongoOpts.use_predictions != E_Mongo::NONE)
     {
         mongoReadFilter(remoteState, time, acsConfig.mongoOpts.used_predictions);
 
@@ -449,7 +449,7 @@ void mainPostProcessing(Network& pppNet, Network& ionNet, ReceiverMap& receiverM
 
     auto pppTrace = getTraceFile(pppNet);
 
-    if (acsConfig.process_ppp && acsConfig.ambrOpts.mode != +E_ARmode::OFF &&
+    if (acsConfig.process_ppp && acsConfig.ambrOpts.mode != E_ARmode::OFF &&
         acsConfig.ambrOpts.once_per_epoch == false && acsConfig.ambrOpts.fix_and_hold)
     {
         BOOST_LOG_TRIVIAL(info) << "\n"
@@ -665,7 +665,7 @@ int main(int argc, char** argv)
         pppNet.kfState.FilterOptions::operator=(acsConfig.pppOpts);
         pppNet.kfState.id                      = "Net";
         pppNet.kfState.output_residuals        = acsConfig.output_residuals;
-        pppNet.kfState.outputMongoMeasurements = acsConfig.mongoOpts.output_measurements;
+    pppNet.kfState.outputMongoMeasurements = (acsConfig.mongoOpts.output_measurements != E_Mongo::NONE);
 
         pppNet.kfState.measRejectCallbacks.push_back(incrementPhaseSignalError);
         pppNet.kfState.measRejectCallbacks.push_back(incrementSatelliteErrors);
@@ -687,7 +687,7 @@ int main(int argc, char** argv)
         ionNet.kfState.FilterOptions::operator=(acsConfig.ionModelOpts);
         ionNet.kfState.id                      = "ION";
         ionNet.kfState.output_residuals        = acsConfig.output_residuals;
-        ionNet.kfState.outputMongoMeasurements = acsConfig.mongoOpts.output_measurements;
+    ionNet.kfState.outputMongoMeasurements = (acsConfig.mongoOpts.output_measurements != E_Mongo::NONE);
         ionNet.kfState.rts_basename            = "IONEX_RTS";
 
         ionNet.kfState.measRejectCallbacks.push_back(deweightMeas);
@@ -730,7 +730,17 @@ int main(int argc, char** argv)
         PTime startTime;
         startTime.bigTime = boost::posix_time::to_time_t(acsConfig.start_epoch);
 
-        tsync = startTime;
+        GTime startGTime = startTime;
+        tsync            = startGTime.floorTime(acsConfig.epoch_interval);
+
+        if (tsync != startGTime)
+        {
+            BOOST_LOG_TRIVIAL(warning)
+                << "Start epoch " << startGTime << " is not aligned to the epoch interval "
+                << acsConfig.epoch_interval << ", rounding down to " << tsync;
+        }
+
+        acsConfig.start_epoch = boost::posix_time::from_time_t((time_t)((PTime)tsync).bigTime);
     }
 
     createTracefiles(receiverMap, pppNet, ionNet);
@@ -1059,19 +1069,19 @@ int main(int argc, char** argv)
                     else
                         rec.obsList = obsStream.getObs(tsync, acsConfig.epoch_tolerance);
 
-                    switch (obsStream.obsWaitCode)
+                    switch (obsStream.obsAgeCode)
                     {
-                        case E_ObsWaitCode::EARLY_DATA:
+                        case E_ObsAgeCode::NO_OBS:
+                            moreData = false;
+                            break;
+                        case E_ObsAgeCode::PAST_OBS:
                             preprocessor(trace, rec);
                             break;
-                        case E_ObsWaitCode::OK:
+                        case E_ObsAgeCode::CURRENT_OBS:
                             moreData = false;
                             preprocessor(trace, rec);
                             break;
-                        case E_ObsWaitCode::NO_DATA_WAIT:
-                            moreData = false;
-                            break;
-                        case E_ObsWaitCode::NO_DATA_EVER:
+                        case E_ObsAgeCode::FUTURE_OBS:
                             moreData = false;
                             break;
                     }
@@ -1080,7 +1090,7 @@ int main(int argc, char** argv)
                 if (rec.obsList.empty())
                 {
                     // failed to get observations
-                    if (obsStream.obsWaitCode == +E_ObsWaitCode::NO_DATA_WAIT)
+                    if (obsStream.obsAgeCode == E_ObsAgeCode::NO_OBS)
                     {
                         // try again later
                         repeat = true;
@@ -1191,7 +1201,9 @@ int main(int argc, char** argv)
             if (acsConfig.require_obs)
                 continue;
 
-            tsync = timeGet();
+            tsync = timeGet().floorTime(acsConfig.epoch_interval);
+
+            acsConfig.start_epoch = boost::posix_time::from_time_t((time_t)((PTime)tsync).bigTime);
         }
 
         BOOST_LOG_TRIVIAL(info) << "Synced " << dataAvailableMap.size() << " receivers...";

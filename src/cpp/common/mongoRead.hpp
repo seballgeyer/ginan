@@ -19,7 +19,7 @@ SSRAtm mongoReadIGSIonosphere(GTime time, const SSRMeta& ssrMeta, int masterIod)
 
 SSRAtm mongoReadCmpAtmosphere(GTime time, SSRMeta ssrMeta);
 
-class KF;
+#include "enums.h"  // For KF enum class definition
 struct KFState;
 
 void mongoReadFilter(

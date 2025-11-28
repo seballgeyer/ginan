@@ -122,7 +122,7 @@ void obsRec(Trace& trace, Trace& jsonTrace, const ObservationRecord& rec)
         __FUNCTION__,
         rec.time.to_string().c_str(),
         rec.sat.id().c_str(),
-        rec.code._to_string(),
+        enum_to_string(rec.code).c_str(),
         pStr,
         lStr,
         sStr,
@@ -140,7 +140,8 @@ void obsRec(Trace& trace, Trace& jsonTrace, const ObservationRecord& rec)
         {{"data", "observations"},
          {"Sat", rec.sat.id()},
          {"Rec", rec.recId},
-         {"Sig", rec.code._to_string()}},
+         {"Sig", enum_to_string(rec.code)}
+        },
         {
             {"SNR", hasSnr ? rec.snr : std::nan("")},
             {"L", hasPhase ? rec.L : std::nan("")},
@@ -334,14 +335,18 @@ set<E_ObsCode> determineExpectedSignals(
     string enumStr = blockTypeStr;
     std::replace(enumStr.begin(), enumStr.end(), '-', '_');
 
-    auto blockOpt = E_Block::_from_string_nothrow(enumStr.c_str());
-    if (!blockOpt)
+    E_Block blockType;
+    try
+    {
+        blockType = string_to_enum<E_Block>(enumStr);
+    }
+    catch (...)
     {
         return expectedSignals;  // Unknown block type
     }
 
     // Get frequencies that this satellite broadcasts
-    auto freqIt = blockTypeFrequencies.find(*blockOpt);
+    auto freqIt = blockTypeFrequencies.find(blockType);
     if (freqIt == blockTypeFrequencies.end())
     {
         return expectedSignals;  // Block type not found
@@ -385,7 +390,7 @@ set<E_ObsCode> determineExpectedSignals(
             // Filter out signals not supported by this block type (e.g., L2C not on older GPS blocks)
             // This prevents false "MISSING" reports for signals that a satellite block type
             // physically cannot transmit.
-            bool supportedByBlock = isSignalSupportedByBlockType(recSig, *blockOpt);
+            bool supportedByBlock = isSignalSupportedByBlockType(recSig, blockType);
 
             if (inSatFreqs && inCodePriorities && supportedByBlock)
             {
@@ -482,63 +487,82 @@ void outputObservations(Trace& trace, Trace& jsonTrace, ObsList& obsList, Receiv
     }
 }
 
-void obsVariances(ObsList& obsList)
+void obsVariance(GObs& obs)
 {
-    for (auto& obs : only<GObs>(obsList))
-        if (obs.satNav_ptr)
-            if (obs.satStat_ptr)
-                if (obs.exclude == false)
-                    if (acsConfig.process_sys[obs.Sat.sys])
+    if (obs.satNav_ptr)
+        if (obs.satStat_ptr)
+            if (obs.exclude == false)
+                if (acsConfig.process_sys[obs.Sat.sys])
+                {
+                    auto& recOpts = acsConfig.getRecOpts(obs.mount);
+                    auto& satOpts = acsConfig.getSatOpts(obs.Sat);
+
+                    double el = obs.satStat_ptr->el;
+                    if (el == 0)  // Eugene: Check if (el <= 0)?
+                        el = PI / 8;
+
+                    double recElScaling = 1;
+                    switch (recOpts.error_model)
                     {
-                        auto& recOpts = acsConfig.getRecOpts(obs.mount);
-                        auto& satOpts = acsConfig.getSatOpts(obs.Sat);
-
-                        double el = obs.satStat_ptr->el;
-                        if (el == 0)
-                            el = PI / 8;
-
-                        double recElScaling = 1;
-                        switch (recOpts.error_model)
+                        case E_NoiseModel::UNIFORM:
                         {
-                            case E_NoiseModel::UNIFORM:
-                            {
-                                recElScaling = 1;
-                                break;
-                            }
-                            case E_NoiseModel::ELEVATION_DEPENDENT:
-                            {
-                                recElScaling = 1 / sin(el);
-                                break;
-                            }
+                            recElScaling = 1;
+                            break;
                         }
-
-                        double satElScaling = 1;
-                        switch (satOpts.error_model)
+                        case E_NoiseModel::ELEVATION_DEPENDENT:
                         {
-                            case E_NoiseModel::UNIFORM:
-                            {
-                                satElScaling = 1;
-                                break;
-                            }
-                            case E_NoiseModel::ELEVATION_DEPENDENT:
-                            {
-                                satElScaling = 1 / sin(el);
-                                break;
-                            }
+                            recElScaling = 1 / sin(el);
+                            break;
                         }
+                    }
 
-                        for (auto& [ft, sig] : obs.sigs)
+                    double satElScaling = 1;
+                    switch (satOpts.error_model)
+                    {
+                        case E_NoiseModel::UNIFORM:
                         {
-                            if (sig.P == 0)
-                                continue;
+                            satElScaling = 1;
+                            break;
+                        }
+                        case E_NoiseModel::ELEVATION_DEPENDENT:
+                        {
+                            satElScaling = 1 / sin(el);
+                            break;
+                        }
+                    }
 
-                            string sigName = sig.code._to_string();
+                    for (auto& [ft, sig] : obs.sigs)
+                    {
+                        if (sig.P == 0)
+                            continue;
+
+                            string sigName = enum_to_string(sig.code);
 
                             auto& satOpts = acsConfig.getSatOpts(obs.Sat, {sigName});
                             auto& recOpts = acsConfig.getRecOpts(
                                 obs.mount,
-                                {obs.Sat.sys._to_string(), sigName}
+                                {obs.Sat.sysName(), sigName}
                             );
+
+                        sig.codeVar = 0;
+                        sig.phasVar = 0;
+
+                        sig.codeVar += SQR(recElScaling * recOpts.code_sigma);
+                        sig.codeVar += SQR(satElScaling * satOpts.code_sigma);
+                        sig.phasVar += SQR(recElScaling * recOpts.phase_sigma);
+                        sig.phasVar += SQR(satElScaling * satOpts.phase_sigma);
+                    }
+
+                        for (auto& [ft, sigList] : obs.sigsLists)
+                            for (auto& sig : sigList)
+                            {
+                                string sigName = enum_to_string(sig.code);
+
+                                auto& satOpts = acsConfig.getSatOpts(obs.Sat, {sigName});
+                                auto& recOpts = acsConfig.getRecOpts(
+                                    obs.mount,
+                                    {obs.Sat.sysName(), sigName}
+                                );
 
                             sig.codeVar = 0;
                             sig.phasVar = 0;
@@ -548,27 +572,15 @@ void obsVariances(ObsList& obsList)
                             sig.phasVar += SQR(recElScaling * recOpts.phase_sigma);
                             sig.phasVar += SQR(satElScaling * satOpts.phase_sigma);
                         }
+                }
+}
 
-                        for (auto& [ft, sigList] : obs.sigsLists)
-                            for (auto& sig : sigList)
-                            {
-                                string sigName = sig.code._to_string();
-
-                                auto& satOpts = acsConfig.getSatOpts(obs.Sat, {sigName});
-                                auto& recOpts = acsConfig.getRecOpts(
-                                    obs.mount,
-                                    {obs.Sat.sys._to_string(), sigName}
-                                );
-
-                                sig.codeVar = 0;
-                                sig.phasVar = 0;
-
-                                sig.codeVar += SQR(recElScaling * recOpts.code_sigma);
-                                sig.codeVar += SQR(satElScaling * satOpts.code_sigma);
-                                sig.phasVar += SQR(recElScaling * recOpts.phase_sigma);
-                                sig.phasVar += SQR(satElScaling * satOpts.phase_sigma);
-                            }
-                    }
+void obsVariances(ObsList& obsList)
+{
+    for (auto& obs : only<GObs>(obsList))
+    {
+        obsVariance(obs);
+    }
 }
 
 void excludeUnprocessed(ObsList& obsList)
@@ -606,7 +618,7 @@ void recordSlips(Receiver& rec)
                         rec.id,
                         obs.time,
                         "PreprocSlip",
-                        sig.code._to_string(),
+                        enum_to_string(sig.code),
                         static_cast<int>(sigStat.slip.any)
                     );
                 }
@@ -650,8 +662,8 @@ void preprocessor(
         return;
     }
 
-    PTime start_time;
-    start_time.bigTime = boost::posix_time::to_time_t(acsConfig.start_epoch);
+    PTime startTime;
+    startTime.bigTime = boost::posix_time::to_time_t(acsConfig.start_epoch);
 
     double tol;
     if (acsConfig.assign_closest_epoch)
@@ -660,7 +672,7 @@ void preprocessor(
         tol = 0.5;
 
     GTime time = obsList.front()->time;
-    if (acsConfig.start_epoch.is_not_a_date_time() == false && time < (GTime)start_time - tol)
+    if (acsConfig.start_epoch.is_not_a_date_time() == false && time < (GTime)startTime - tol)
     {
         return;
     }

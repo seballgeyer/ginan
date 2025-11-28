@@ -35,7 +35,7 @@ RtsConfiguration RtsConfiguration::fromAcsConfig()
     config.rts_only            = acsConfig.rts_only;
     config.output_residuals    = acsConfig.output_residuals;
     config.retain_rts_files    = acsConfig.retain_rts_files;
-    config.output_measurements = acsConfig.mongoOpts.output_measurements;
+    config.output_measurements = acsConfig.mongoOpts.output_measurements != E_Mongo::NONE;
     config.queue_mongo_outputs = acsConfig.mongoOpts.queue_outputs;
     config.sleep_milliseconds  = acsConfig.sleep_milliseconds;
     config.regularisation      = acsConfig.pppOpts.rts_regularisation;
@@ -58,9 +58,9 @@ E_SerialObject RtsFileReader::readNextObject(FilterData& filterData)
 {
     E_SerialObject type = getFilterTypeFromFile(currentPosition, inputFile);
 
-    BOOST_LOG_TRIVIAL(debug) << "Found " << type._to_string() << "\n";
+    BOOST_LOG_TRIVIAL(debug) << "Found " << enum_to_string(type) << "\n";
 
-    if (type == +E_SerialObject::NONE)
+    if (type == E_SerialObject::NONE)
     {
         return type;
     }
@@ -678,10 +678,10 @@ E_SerialObject RtsOutputFileReader::readNextObject(FilterData& filterData)
 {
     E_SerialObject type = getFilterTypeFromFile(currentPosition, reversedStatesFilename);
 
-    BOOST_LOG_TRIVIAL(debug) << "Outputting " << type._to_string() << " from file position "
+    BOOST_LOG_TRIVIAL(debug) << "Outputting " << enum_to_string(type) << " from file position "
                              << currentPosition << "\n";
 
-    if (type == +E_SerialObject::NONE)
+    if (type == E_SerialObject::NONE)
     {
         return type;
     }
@@ -893,7 +893,7 @@ void rtsOutput(
     {
         E_SerialObject type = outputReader.readNextObject(filterData);
 
-        if (type == +E_SerialObject::NONE)
+        if (type == E_SerialObject::NONE)
         {
             break;
         }
@@ -990,13 +990,13 @@ void rtsSmoothing(
     {
         E_SerialObject type = reader.readNextObject(filterData);
 
-        if (type == +E_SerialObject::NONE)
+        if (type == E_SerialObject::NONE)
         {
             break;
         }
 
         // Handle metadata writing
-        if (type == +E_SerialObject::METADATA)
+        if (type == E_SerialObject::METADATA)
         {
             processor.writeMetadata(filterData);
         }

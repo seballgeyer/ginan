@@ -33,9 +33,8 @@ struct KFState;
 
 /** Types of objects that are stored in kalman filter binary archives
  */
-BETTER_ENUM(
-    E_SerialObject,
-    int,
+enum class E_SerialObject : int
+{
     NONE,
     FILTER_MINUS,
     FILTER_PLUS,
@@ -45,7 +44,7 @@ BETTER_ENUM(
     STRING,
     MEASUREMENT,
     METADATA
-)
+};
 
 struct TransitionMatrixObject
 {
@@ -156,13 +155,13 @@ void spitFilterToFile(
             return;
         }
 
-        // 	std::cout << "RTS - writing " << type._to_string() << " to file " << filename << "\n";
+        // 	std::cout << "RTS - writing " << enum_to_string(type) << " to file " << filename << "\n";
 
         binary_oarchive serial(fileStream, 1);  // no header
 
         long int pos = fileStream.tellp();
 
-        int type_int = type;
+        int type_int = static_cast<int>(type);
         serial & type_int;
         serial & object;
 
@@ -220,7 +219,7 @@ bool getFilterObjectFromFile(
     int typeInt;
     serial & typeInt;
 
-    E_SerialObject type = E_SerialObject::_from_integral(typeInt);
+    E_SerialObject type = int_to_enum<E_SerialObject>(typeInt);
     if (type != expectedType)
     {
         std::cout << "\n"

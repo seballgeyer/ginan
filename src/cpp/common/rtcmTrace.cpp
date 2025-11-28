@@ -100,8 +100,8 @@ void RtcmTrace::traceSsrEph(RtcmMessageType messCode, SatSys Sat, SSREph& ssrEph
     bsoncxx::builder::basic::document doc = {};
     doc.append(kvp("type", "ssrEph"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("EpochTimeGPST", ssrEph.ssrMeta.receivedTime.to_string()));
     doc.append(kvp("ReferenceTimeGPST", ssrEph.t0.to_string()));
@@ -146,8 +146,8 @@ void RtcmTrace::traceSsrClk(RtcmMessageType messCode, SatSys Sat, SSRClk& ssrClk
     bsoncxx::builder::basic::document doc = {};
     doc.append(kvp("type", "ssrClk"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("EpochTimeGPST", ssrClk.ssrMeta.receivedTime.to_string()));
     doc.append(kvp("ReferenceTimeGPST", ssrClk.t0.to_string()));
@@ -187,8 +187,8 @@ void RtcmTrace::traceSsrUra(RtcmMessageType messCode, SatSys Sat, SSRUra& ssrUra
     bsoncxx::builder::basic::document doc = {};
     doc.append(kvp("type", "ssrURA"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("EpochTimeGPST", ssrUra.ssrMeta.receivedTime.to_string()));
     doc.append(kvp("ReferenceTimeGPST", ssrUra.t0.to_string()));
@@ -224,8 +224,8 @@ void RtcmTrace::traceSsrHRClk(RtcmMessageType messCode, SatSys Sat, SSRHRClk& Ss
     bsoncxx::builder::basic::document doc = {};
     doc.append(kvp("type", "ssrHRClk"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("EpochTimeGPST", SsrHRClk.ssrMeta.receivedTime.to_string()));
     doc.append(kvp("ReferenceTimeGPST", SsrHRClk.t0.to_string()));
@@ -266,8 +266,8 @@ void RtcmTrace::traceSsrCodeBias(
     bsoncxx::builder::basic::document doc = {};
     doc.append(kvp("type", "ssrCodeBias"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("EpochTimeGPST", ssrBias.ssrMeta.receivedTime.to_string()));
     doc.append(kvp("ReferenceTimeGPST", ssrBias.t0.to_string()));
@@ -279,7 +279,7 @@ void RtcmTrace::traceSsrCodeBias(
     doc.append(kvp("SSRProviderID", (int)ssrBias.ssrMeta.provider));
     doc.append(kvp("SSRSolutionID", (int)ssrBias.ssrMeta.solution));
     doc.append(kvp("Sat", Sat.id()));
-    doc.append(kvp("Code", code._to_string()));
+    doc.append(kvp("Code", enum_to_string(code)));
     doc.append(kvp("Bias", ssrBias.obsCodeBiasMap[code].bias));
 
     fout << bsoncxx::to_json(doc) << "\n";
@@ -309,8 +309,8 @@ void RtcmTrace::traceSsrPhasBias(
     bsoncxx::builder::basic::document doc = {};
     doc.append(kvp("type", "ssrPhasBias"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("EpochTimeGPST", ssrBias.ssrMeta.receivedTime.to_string()));
     doc.append(kvp("ReferenceTimeGPST", ssrBias.t0.to_string()));
@@ -326,7 +326,7 @@ void RtcmTrace::traceSsrPhasBias(
     doc.append(kvp("Sat", Sat.id()));
     doc.append(kvp("YawAngle", ssrBias.ssrPhase.yawAngle));
     doc.append(kvp("YawRate", ssrBias.ssrPhase.yawRate));
-    doc.append(kvp("Code", code._to_string()));
+    doc.append(kvp("Code", enum_to_string(code)));
     doc.append(kvp("SignalIntegerIndicator", (int)ssrBias.ssrPhaseChs[code].signalIntInd));
     doc.append(kvp("SignalsWLIntegerIndicator", (int)ssrBias.ssrPhaseChs[code].signalWLIntInd));
     doc.append(kvp("SignalDiscontinuityCount", (int)ssrBias.ssrPhaseChs[code].signalDisconCnt));
@@ -384,10 +384,10 @@ void RtcmTrace::traceBrdcEph(  // todo aaron, template this for gps/glo?
     // Note the Satellite id is not set in rinex correctly as we a mixing GNSS systems.
     doc.append(kvp("type", "brdcEph"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
-    doc.append(kvp("Type", eph.type._to_string()));
+    doc.append(kvp("Type", enum_to_string(eph.type)));
 
     doc.append(kvp("ToeGPST", eph.toe.to_string()));
     doc.append(kvp("TocGPST", eph.toc.to_string()));
@@ -420,11 +420,11 @@ void RtcmTrace::traceBrdcEph(RtcmMessageType messCode, Geph& geph)
     // Note the Satellite id is not set in rinex correctly as we a mixing GNSS systems.
     doc.append(kvp("type", "brdcEph"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("Sat", geph.Sat.id()));
-    doc.append(kvp("Type", geph.type._to_string()));
+    doc.append(kvp("Type", enum_to_string(geph.type)));
 
     doc.append(kvp("ToeGPST", geph.toe.to_string()));
     doc.append(kvp("TofGPST", geph.tof.to_string()));
@@ -476,7 +476,7 @@ void traceBrdcEphBody(bsoncxx::builder::basic::document& doc, Eph& eph)
     doc.append(kvp("tgd1", eph.tgd[1]));  // GPS/QZS no tgd[1]
     doc.append(kvp("sva", eph.sva));
 
-    if (eph.Sat.sys == +E_Sys::GPS || eph.Sat.sys == +E_Sys::QZS)
+    if (eph.Sat.sys == E_Sys::GPS || eph.Sat.sys == E_Sys::QZS)
     {
         doc.append(kvp("ura", eph.ura[0]));
         doc.append(kvp("svh", eph.svh));
@@ -485,7 +485,7 @@ void traceBrdcEphBody(bsoncxx::builder::basic::document& doc, Eph& eph)
         doc.append(kvp("fitFlag", eph.fitFlag));
         doc.append(kvp("fit", eph.fit));
     }
-    else if (eph.Sat.sys == +E_Sys::GAL)
+    else if (eph.Sat.sys == E_Sys::GAL)
     {
         doc.append(kvp("SISA", eph.ura[0]));
         doc.append(kvp("SVHealth", eph.svh));
@@ -497,7 +497,7 @@ void traceBrdcEphBody(bsoncxx::builder::basic::document& doc, Eph& eph)
         doc.append(kvp("E1DataValidity", eph.e1_dvs));
         doc.append(kvp("DataSource", eph.code));
     }
-    else if (eph.Sat.sys == +E_Sys::BDS)
+    else if (eph.Sat.sys == E_Sys::BDS)
     {
         doc.append(kvp("URA", eph.ura[0]));
         doc.append(kvp("SVHealth", eph.svh));
@@ -665,12 +665,12 @@ void RtcmTrace::traceMSM(RtcmMessageType messCode, GTime time, SatSys Sat, Sig& 
     bsoncxx::builder::basic::document doc = {};
     doc.append(kvp("type", "MSM"));
     doc.append(kvp("Mountpoint", rtcmMountpoint));
-    doc.append(kvp("MessageNumber", messCode._to_integral()));
-    doc.append(kvp("MessageType", messCode._to_string()));
+    doc.append(kvp("MessageNumber", static_cast<int>(messCode)));
+    doc.append(kvp("MessageType", enum_to_string(messCode)));
     doc.append(kvp("ReceivedSentTimeGPST", nearTime.to_string()));
     doc.append(kvp("EpochTimeGPST", time.to_string()));
     doc.append(kvp("Sat", Sat.id()));
-    doc.append(kvp("Code", sig.code._to_string()));
+    doc.append(kvp("Code", enum_to_string(sig.code)));
     doc.append(kvp("Pseudorange", sig.P));
     doc.append(kvp("CarrierPhase", sig.L));
     doc.append(kvp("Doppler", sig.D));

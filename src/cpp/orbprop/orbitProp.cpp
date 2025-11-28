@@ -62,7 +62,7 @@ void OrbitIntegrator::computeCommon(GTime time)
     eci2ecf  = frameSwapper.i2t_mat;
     deci2ecf = frameSwapper.di2t_mat;  // todo aaron, just fs this instead of matrices?
 
-    for (auto& body : E_ThirdBody::_values())
+    for (auto body : enum_values<E_ThirdBody>())
     {
         jplEphPos(nav.jplEph_ptr, time, body, planetsPosMap[body], &planetsVelMap[body]);
     }
@@ -209,7 +209,7 @@ void OrbitIntegrator::computeAcceleration(
 
         for (auto& planet : orbInit.planetary_perturbations)
         {
-            if (planet == +E_ThirdBody::EARTH)
+            if (planet == E_ThirdBody::EARTH)
             {
                 continue;
             }
@@ -399,7 +399,7 @@ void OrbitIntegrator::computeAcceleration(
             break;
     }
 
-    if (orbInit.albedo != +E_SRPModel::NONE)
+    if (orbInit.albedo != E_SRPModel::NONE)
     {
         double   A     = orbInit.area;
         double   m     = orbInit.mass;
@@ -650,10 +650,10 @@ void OrbitIntegrator::computeAcceleration(
                 ecl = eclipseFrac;
             }
 
-            dAdParam.col(paramIndex) = axis[empdata.axisId] * ecl;
-            if (empdata.type == +E_TrigType::COS)
+            dAdParam.col(paramIndex) = axis[static_cast<int>(empdata.axisId)] * ecl;
+            if (empdata.type == E_TrigType::COS)
                 dAdParam.col(paramIndex) *= cos(empdata.deg * du);
-            else if (empdata.type == +E_TrigType::SIN)
+            else if (empdata.type == E_TrigType::SIN)
                 dAdParam.col(paramIndex) *= sin(empdata.deg * du);
 
             accEmp += empdata.value * dAdParam.col(paramIndex);
@@ -781,7 +781,7 @@ void integrateOrbits(
         {
             tracepdeex(0, satTrace, "\n");
             tracepdeex(4, satTrace, "%s", orbitPropagator.timeInit.to_string().c_str());
-            tracepdeex(0, satTrace, " %-25s %+14.4e", component._to_string(), value);
+            tracepdeex(0, satTrace, " %-25s %+14.4e", enum_to_string(component), value);
         }
     }
 }
@@ -1445,7 +1445,7 @@ void outputOrbitConfig(KFState& kfState, bool isSmoothed)
              })
         {
             int n = 2;
-            if (type == +KF::ORBIT)
+            if (type == KF::ORBIT)
                 n = 6;
 
             vector<double> aprioriVec(n);
@@ -1461,7 +1461,8 @@ void outputOrbitConfig(KFState& kfState, bool isSmoothed)
 
                 double val   = 0;
                 double var   = 0;
-                bool   found = kfState.getKFValue(kfKey, val, &var);
+                E_Source foundSrc = kfState.getKFValue(kfKey, val, &var);
+                bool     found    = foundSrc != E_Source::NONE;
 
                 aprioriVec[i]   = val;
                 sigmaVec[i]     = sqrt(var);
@@ -1495,7 +1496,7 @@ void outputOrbitConfig(KFState& kfState, bool isSmoothed)
                 arr << close_array;
             }
 
-            string typeStr = type._to_string();
+            string typeStr = enum_to_string(type);
             to_lower(typeStr);
 
             satellite << typeStr << state;

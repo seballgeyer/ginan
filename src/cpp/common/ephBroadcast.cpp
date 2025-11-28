@@ -75,7 +75,7 @@ EPHTYPE* selSysEphFromMap(
             trace,
             "\nno broadcast ephemeris (EOP/ION): %s sys=%s",
             time.to_string().c_str(),
-            sys._to_string()
+            enum_to_string(sys)
         );
         if (sysEphMap.empty() == false)
         {
@@ -316,7 +316,7 @@ void eph2Pos(
 
     double tk  = (time - eph.toe).to_double();
     int    prn = eph.Sat.prn;
-    int    sys = eph.Sat.sys;
+    E_Sys  sys = eph.Sat.sys;
 
     double mu;
     double omge;
@@ -372,7 +372,7 @@ void eph2Pos(
     double cosi = cos(i);
 
     /* beidou geo satellite (ref [9]), prn range may change in the future */
-    if ((sys == +E_Sys::BDS) && (prn <= 5 || prn >= 59))
+    if ((sys == E_Sys::BDS) && (prn <= 5 || prn >= 59))
     {
         double O = eph.OMG0 + eph.OMGd * tk - omge * eph.toes;
 
@@ -485,7 +485,7 @@ bool satClkBroadcast(
 
     clkVar = SQR(STD_BRDCCLK / CLIGHT);
 
-    int sys = Sat.sys;
+    E_Sys sys = Sat.sys;
 
     ephClkValid = false;
 
@@ -553,7 +553,7 @@ bool satPosBroadcast(
     Vector3d rSat2;
     double   tt = 10e-3;
 
-    int sys = Sat.sys;
+    E_Sys sys = Sat.sys;
 
     auto type = acsConfig.used_nav_types[Sat.sys];
 
@@ -605,21 +605,21 @@ bool satClkBroadcast(
     Navigation& nav
 )
 {
-    int sys = Sat.sys;
+    E_Sys sys = Sat.sys;
 
     ephClkValid = false;
 
-    if (sys == +E_Sys::GPS || sys == +E_Sys::GAL || sys == +E_Sys::QZS || sys == +E_Sys::BDS)
+    if (sys == E_Sys::GPS || sys == E_Sys::GAL || sys == E_Sys::QZS || sys == E_Sys::BDS)
     {
         return satClkBroadcast<
             Eph>(trace, time, teph, Sat, satClk, satClkVel, clkVar, ephClkValid, iode, nav);
     }
-    else if (sys == +E_Sys::GLO)
+    else if (sys == E_Sys::GLO)
     {
         return satClkBroadcast<
             Geph>(trace, time, teph, Sat, satClk, satClkVel, clkVar, ephClkValid, iode, nav);
     }
-    else if (sys == +E_Sys::SBS)
+    else if (sys == E_Sys::SBS)
     {
         return satClkBroadcast<
             Seph>(trace, time, teph, Sat, satClk, satClkVel, clkVar, ephClkValid, iode, nav);
@@ -645,21 +645,21 @@ bool satPosBroadcast(
     Navigation& nav
 )
 {
-    int sys = Sat.sys;
+    E_Sys sys = Sat.sys;
 
     ephPosValid = false;
 
-    if (sys == +E_Sys::GPS || sys == +E_Sys::GAL || sys == +E_Sys::QZS || sys == +E_Sys::BDS)
+    if (sys == E_Sys::GPS || sys == E_Sys::GAL || sys == E_Sys::QZS || sys == E_Sys::BDS)
     {
         return satPosBroadcast<
             Eph>(trace, time, teph, Sat, rSat, satVel, ephVar, ephPosValid, iode, nav);
     }
-    else if (sys == +E_Sys::GLO)
+    else if (sys == E_Sys::GLO)
     {
         return satPosBroadcast<
             Geph>(trace, time, teph, Sat, rSat, satVel, ephVar, ephPosValid, iode, nav);
     }
-    else if (sys == +E_Sys::SBS)
+    else if (sys == E_Sys::SBS)
     {
         return satPosBroadcast<
             Seph>(trace, time, teph, Sat, rSat, satVel, ephVar, ephPosValid, iode, nav);

@@ -80,7 +80,7 @@ E_SerialObject getFilterTypeFromFile(
 
     int typeInt;
     serial & typeInt;
-    E_SerialObject type = E_SerialObject::_from_integral(typeInt);
+    E_SerialObject type = int_to_enum<E_SerialObject>(typeInt);
 
     return type;
 }
@@ -92,7 +92,7 @@ void tryPrepareFilterPointers(KFState& kfState, ReceiverMap& receiverMap)
     {
         KFKey kfKey = key;
 
-        if (kfKey.type == +KF::REC_POS)
+        if (kfKey.type == KF::REC_POS)
         {
             // make sure all rec pos are associated with receivers
             receiverMap[kfKey.str].id = kfKey.str;

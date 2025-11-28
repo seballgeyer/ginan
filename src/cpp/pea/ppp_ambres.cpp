@@ -183,7 +183,7 @@ void fixAndHoldAmbiguities(
 {
     tracepdeex(3, trace, "%s: %s\n", __FUNCTION__, kfState.time.to_string().c_str());
 
-    if (acsConfig.ambrOpts.mode == +E_ARmode::OFF)
+    if (acsConfig.ambrOpts.mode == E_ARmode::OFF)
     {
         return;
     }
@@ -262,11 +262,11 @@ bool queryBiasUC(
     KFKey kfKey;
     kfKey.str = rec;
     kfKey.Sat = Sat;
-    kfKey.num = code;
+    kfKey.num = static_cast<int>(code);
 
     if (Sat.prn == 0)  // todo aaron, check if needed and reverse logic
     {
-        auto& recOpts = acsConfig.getRecOpts(rec, {Sat.sys._to_string(), code._to_string()});
+    auto& recOpts = acsConfig.getRecOpts(rec, {Sat.sysName(), enum_to_string(code)});
 
         if (type == CODE)
         {
@@ -282,7 +282,7 @@ bool queryBiasUC(
 
             kfKey.type = KF::CODE_BIAS;
 
-            return kfState.getKFValue(kfKey, bias, &var);
+            return kfState.getKFValue(kfKey, bias, &var) != E_Source::NONE;
         }
 
         if (type == PHAS)
@@ -300,7 +300,7 @@ bool queryBiasUC(
 
             kfKey.type = KF::PHASE_BIAS;
 
-            return kfState.getKFValue(kfKey, bias, &var);
+            return kfState.getKFValue(kfKey, bias, &var) != E_Source::NONE;
         }
     }
     else if (rec.empty())
@@ -320,7 +320,8 @@ bool queryBiasUC(
             }
 
             kfKey.type = KF::CODE_BIAS;
-            bool pass  = kfState.getKFValue(kfKey, bias, &var);
+            E_Source passSrc = kfState.getKFValue(kfKey, bias, &var);
+            bool     pass    = passSrc != E_Source::NONE;
 
             tracepdeex(
                 5,
@@ -346,7 +347,8 @@ bool queryBiasUC(
             }
 
             kfKey.type = KF::PHASE_BIAS;
-            bool pass  = kfState.getKFValue(kfKey, bias, &var);
+            E_Source passSrc = kfState.getKFValue(kfKey, bias, &var);
+            bool     pass    = passSrc != E_Source::NONE;
 
             tracepdeex(
                 5,

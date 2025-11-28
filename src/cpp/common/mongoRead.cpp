@@ -75,7 +75,7 @@ SsrOutMap mongoReadOrbClk(
 
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        Mongo* mongo_ptr = mongo_ptr_arr[instance];
+        Mongo* mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -287,7 +287,7 @@ SsrPBMap mongoReadPhaseBias(
 
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        auto mongo_ptr = mongo_ptr_arr[instance];
+        auto mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -346,7 +346,7 @@ SsrPBMap mongoReadPhaseBias(
 
             strView = entry[SSR_OBSCODE].get_string().value;
             std::string obsStr(strView.begin(), strView.end());
-            E_ObsCode   obsCode = E_ObsCode::_from_string(obsStr.c_str());
+            E_ObsCode   obsCode = string_to_enum<E_ObsCode>(obsStr.c_str());
 
             BiasVar biasVar;
             biasVar.bias = entry[SSR_BIAS].get_double();
@@ -372,7 +372,7 @@ SsrCBMap mongoReadCodeBias(
 
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        Mongo* mongo_ptr = mongo_ptr_arr[instance];
+        Mongo* mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -422,7 +422,7 @@ SsrCBMap mongoReadCodeBias(
 
             strView = entry[SSR_OBSCODE].get_string().value;
             std::string obsStr(strView.begin(), strView.end());
-            E_ObsCode   obsCode = E_ObsCode::_from_string(obsStr.c_str());
+            E_ObsCode   obsCode = string_to_enum<E_ObsCode>(obsStr.c_str());
 
             BiasVar biasVar;
             biasVar.bias = entry[SSR_BIAS].get_double();
@@ -448,7 +448,7 @@ Eph mongoReadEphemeris(
 
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        Mongo* mongo_ptr = mongo_ptr_arr[instance];
+        Mongo* mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -461,17 +461,17 @@ Eph mongoReadEphemeris(
 
         switch (rtcmMessCode)
         {
-            case +RtcmMessageType::GPS_EPHEMERIS:  // fallthrough
-            case +RtcmMessageType::QZS_EPHEMERIS:
+            case RtcmMessageType::GPS_EPHEMERIS:  // fallthrough
+            case RtcmMessageType::QZS_EPHEMERIS:
                 type = E_NavMsgType::LNAV;
                 break;
-            case +RtcmMessageType::BDS_EPHEMERIS:
+            case RtcmMessageType::BDS_EPHEMERIS:
                 type = E_NavMsgType::D1;
                 break;
-            case +RtcmMessageType::GAL_FNAV_EPHEMERIS:
+            case RtcmMessageType::GAL_FNAV_EPHEMERIS:
                 type = E_NavMsgType::FNAV;
                 break;
-            case +RtcmMessageType::GAL_INAV_EPHEMERIS:
+            case RtcmMessageType::GAL_INAV_EPHEMERIS:
                 type = E_NavMsgType::INAV;
                 break;
             default:
@@ -480,7 +480,7 @@ Eph mongoReadEphemeris(
         }
 
         // Find the latest document according to t0_time.
-        auto docSys = document{} << "Sat" << Sat.id() << "Type" << type._to_string() << finalize;
+        auto docSys = document{} << "Sat" << Sat.id() << "Type" << enum_to_string(type) << finalize;
 
         auto docSort = document{} << "ToeGPST" << -1  // Newest entry comes first
                                   << finalize;
@@ -541,7 +541,7 @@ Eph mongoReadEphemeris(
             eph.tgd[1] = satDoc["TGD1"].get_double();
             eph.sva    = satDoc["URAIndex"].get_int32();
 
-            if (eph.Sat.sys == +E_Sys::GPS || eph.Sat.sys == +E_Sys::QZS)
+            if (eph.Sat.sys == E_Sys::GPS || eph.Sat.sys == E_Sys::QZS)
             {
                 eph.ura[0]  = satDoc["URA"].get_double();
                 int svh     = satDoc["SVHealth"].get_int32();
@@ -551,7 +551,7 @@ Eph mongoReadEphemeris(
                 eph.fitFlag = satDoc["FitFlag"].get_int32();
                 eph.fit     = satDoc["FitInterval"].get_double();
             }
-            else if (eph.Sat.sys == +E_Sys::GAL)
+            else if (eph.Sat.sys == E_Sys::GAL)
             {
                 eph.ura[0]  = satDoc["SISA"].get_double();
                 int svh     = satDoc["SVHealth"].get_int32();
@@ -564,7 +564,7 @@ Eph mongoReadEphemeris(
                 eph.e1_dvs  = satDoc["E1DataValidity"].get_int32();
                 eph.code    = satDoc["DataSource"].get_int32();
             }
-            else if (eph.Sat.sys == +E_Sys::BDS)
+            else if (eph.Sat.sys == E_Sys::BDS)
             {
                 eph.ura[0] = satDoc["URA"].get_double();
                 int svh    = satDoc["SVHealth"].get_int32();
@@ -587,7 +587,7 @@ Geph mongoReadGloEphemeris(
 
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        Mongo* mongo_ptr = mongo_ptr_arr[instance];
+        Mongo* mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -667,7 +667,7 @@ SSRAtm mongoReadCmpAtmosphere(GTime time, SSRMeta ssrMeta)
 
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        Mongo* mongo_ptr = mongo_ptr_arr[instance];
+        Mongo* mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -916,7 +916,7 @@ SSRAtm mongoReadIGSIonosphere(GTime time, const SSRMeta& ssrMeta, int masterIod)
 
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        Mongo* mongo_ptr = mongo_ptr_arr[instance];
+        Mongo* mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -973,7 +973,7 @@ SSRAtm mongoReadIGSIonosphere(GTime time, const SSRMeta& ssrMeta, int masterIod)
             sphComp.order  = atmDoc[IGS_ION_ORD].get_int32();
             int trigType   = atmDoc[IGS_ION_PAR].get_int32();
 
-            sphComp.trigType = E_TrigType::_from_integral(trigType);
+            sphComp.trigType = int_to_enum<E_TrigType>(trigType);
 
             sphComp.value    = atmDoc[IGS_ION_VAL].get_double();
             sphComp.variance = 0;
@@ -1007,7 +1007,7 @@ void mongoReadFilter(
 {
     for (auto instance : {E_Mongo::PRIMARY, E_Mongo::SECONDARY})
     {
-        Mongo* mongo_ptr = mongo_ptr_arr[instance];
+        Mongo* mongo_ptr = mongo_ptr_arr[static_cast<size_t>(instance)];
 
         if (mongo_ptr == nullptr)
             continue;
@@ -1057,13 +1057,13 @@ void mongoReadFilter(
         docProject2 << toString(Constants::Mongo::DX_VAR) << 0;
         docProject2 << "_id" << 0;
 
-        if (std::find(types.begin(), types.end(), +KF::ALL) == types.end())
+        if (std::find(types.begin(), types.end(), KF::ALL) == types.end())
         {
             auto array = docMatch2 << "$or" << open_array;
 
             for (auto& type : types)
             {
-                array << open_document << toString(Constants::Mongo::STATE_DB) << type._to_string()
+                array << open_document << toString(Constants::Mongo::STATE_DB) << enum_to_string(type)
                       << close_document;
             }
 
@@ -1119,7 +1119,7 @@ void mongoReadFilter(
             // std::cout << bsoncxx::to_json(doc) <<  "\n";
 
             KFKey kfKey;
-            kfKey.type = KF::_from_string(
+            kfKey.type = string_to_enum<KF>(
                 std::string(doc[Constants::Mongo::STATE_DB].get_string().value).c_str()
             );
             kfKey.Sat =

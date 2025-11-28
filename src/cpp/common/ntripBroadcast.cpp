@@ -124,7 +124,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
     {
         int updateInterval = msgOpts.udi;
 
-        if (messCode == +RtcmMessageType::IGS_SSR || messCode == +RtcmMessageType::COMPACT_SSR)
+        if (messCode == RtcmMessageType::IGS_SSR || messCode == RtcmMessageType::COMPACT_SSR)
         {
             updateInterval = 1;
         }
@@ -147,18 +147,18 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
         E_Sys sys = rtcmMessageSystemMap[messCode];
 
-        if (sys == +E_Sys::NONE)
+        if (sys == E_Sys::NONE)
         {
             BOOST_LOG_TRIVIAL(error) << "Invalid message code system :" << messCode;
             continue;
         }
 
-        if (sys == +E_Sys::GLO)
+        if (sys == E_Sys::GLO)
         {
             RTod tod            = targetTime;
             ssrMeta.epochTime1s = (int)tod;
         }
-        else if (sys == +E_Sys::BDS)
+        else if (sys == E_Sys::BDS)
         {
             BTow tow            = targetTime;
             ssrMeta.epochTime1s = (int)tow;
@@ -175,16 +175,16 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
         else
             t0 = targetTime + updateInterval / 2.0;
 
-        BOOST_LOG_TRIVIAL(debug) << "SSR message type: " << messCode._to_string()
+        BOOST_LOG_TRIVIAL(debug) << "SSR message type: " << enum_to_string(messCode)
                                  << ", udi: " << updateInterval;
         switch (messCode)
         {
-            case +RtcmMessageType::GPS_SSR_PHASE_BIAS:
-            case +RtcmMessageType::GLO_SSR_PHASE_BIAS:
-            case +RtcmMessageType::GAL_SSR_PHASE_BIAS:
-            case +RtcmMessageType::QZS_SSR_PHASE_BIAS:
-            case +RtcmMessageType::BDS_SSR_PHASE_BIAS:
-            case +RtcmMessageType::SBS_SSR_PHASE_BIAS:
+            case RtcmMessageType::GPS_SSR_PHASE_BIAS:
+            case RtcmMessageType::GLO_SSR_PHASE_BIAS:
+            case RtcmMessageType::GAL_SSR_PHASE_BIAS:
+            case RtcmMessageType::QZS_SSR_PHASE_BIAS:
+            case RtcmMessageType::BDS_SSR_PHASE_BIAS:
+            case RtcmMessageType::SBS_SSR_PHASE_BIAS:
             {
                 auto ssrPBMap = mongoReadPhaseBias(ssrMeta, masterIod, sys);
 
@@ -193,18 +193,18 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                 if (write == false)
                 {
-                    std::cout << "RtcmMessageType::" << messCode._to_string() << " was not written"
+                    std::cout << "RtcmMessageType::" << enum_to_string(messCode) << " was not written"
                               << "\n";
                 }
 
                 break;
             }
-            case +RtcmMessageType::GPS_SSR_CODE_BIAS:
-            case +RtcmMessageType::GLO_SSR_CODE_BIAS:
-            case +RtcmMessageType::GAL_SSR_CODE_BIAS:
-            case +RtcmMessageType::QZS_SSR_CODE_BIAS:
-            case +RtcmMessageType::BDS_SSR_CODE_BIAS:
-            case +RtcmMessageType::SBS_SSR_CODE_BIAS:
+            case RtcmMessageType::GPS_SSR_CODE_BIAS:
+            case RtcmMessageType::GLO_SSR_CODE_BIAS:
+            case RtcmMessageType::GAL_SSR_CODE_BIAS:
+            case RtcmMessageType::QZS_SSR_CODE_BIAS:
+            case RtcmMessageType::BDS_SSR_CODE_BIAS:
+            case RtcmMessageType::SBS_SSR_CODE_BIAS:
             {
                 auto ssrCBMap = mongoReadCodeBias(ssrMeta, masterIod, sys);
 
@@ -213,36 +213,36 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                 if (write == false)
                 {
-                    std::cout << "RtcmMessageType::" << messCode._to_string() << " was not written"
+                    std::cout << "RtcmMessageType::" << enum_to_string(messCode) << " was not written"
                               << "\n";
                 }
 
                 break;
             }
-            case +RtcmMessageType::GPS_SSR_COMB_CORR:
-            case +RtcmMessageType::GLO_SSR_COMB_CORR:
-            case +RtcmMessageType::GAL_SSR_COMB_CORR:
-            case +RtcmMessageType::QZS_SSR_COMB_CORR:
-            case +RtcmMessageType::BDS_SSR_COMB_CORR:
-            case +RtcmMessageType::SBS_SSR_COMB_CORR:
-            case +RtcmMessageType::GPS_SSR_ORB_CORR:
-            case +RtcmMessageType::GLO_SSR_ORB_CORR:
-            case +RtcmMessageType::GAL_SSR_ORB_CORR:
-            case +RtcmMessageType::QZS_SSR_ORB_CORR:
-            case +RtcmMessageType::BDS_SSR_ORB_CORR:
-            case +RtcmMessageType::SBS_SSR_ORB_CORR:
-            case +RtcmMessageType::GPS_SSR_CLK_CORR:
-            case +RtcmMessageType::GLO_SSR_CLK_CORR:
-            case +RtcmMessageType::GAL_SSR_CLK_CORR:
-            case +RtcmMessageType::QZS_SSR_CLK_CORR:
-            case +RtcmMessageType::BDS_SSR_CLK_CORR:
-            case +RtcmMessageType::SBS_SSR_CLK_CORR:
-            case +RtcmMessageType::GPS_SSR_HR_CLK_CORR:
-            case +RtcmMessageType::GLO_SSR_HR_CLK_CORR:
-            case +RtcmMessageType::GAL_SSR_HR_CLK_CORR:
-            case +RtcmMessageType::QZS_SSR_HR_CLK_CORR:
-            case +RtcmMessageType::BDS_SSR_HR_CLK_CORR:
-            case +RtcmMessageType::SBS_SSR_HR_CLK_CORR:
+            case RtcmMessageType::GPS_SSR_COMB_CORR:
+            case RtcmMessageType::GLO_SSR_COMB_CORR:
+            case RtcmMessageType::GAL_SSR_COMB_CORR:
+            case RtcmMessageType::QZS_SSR_COMB_CORR:
+            case RtcmMessageType::BDS_SSR_COMB_CORR:
+            case RtcmMessageType::SBS_SSR_COMB_CORR:
+            case RtcmMessageType::GPS_SSR_ORB_CORR:
+            case RtcmMessageType::GLO_SSR_ORB_CORR:
+            case RtcmMessageType::GAL_SSR_ORB_CORR:
+            case RtcmMessageType::QZS_SSR_ORB_CORR:
+            case RtcmMessageType::BDS_SSR_ORB_CORR:
+            case RtcmMessageType::SBS_SSR_ORB_CORR:
+            case RtcmMessageType::GPS_SSR_CLK_CORR:
+            case RtcmMessageType::GLO_SSR_CLK_CORR:
+            case RtcmMessageType::GAL_SSR_CLK_CORR:
+            case RtcmMessageType::QZS_SSR_CLK_CORR:
+            case RtcmMessageType::BDS_SSR_CLK_CORR:
+            case RtcmMessageType::SBS_SSR_CLK_CORR:
+            case RtcmMessageType::GPS_SSR_HR_CLK_CORR:
+            case RtcmMessageType::GLO_SSR_HR_CLK_CORR:
+            case RtcmMessageType::GAL_SSR_HR_CLK_CORR:
+            case RtcmMessageType::QZS_SSR_HR_CLK_CORR:
+            case RtcmMessageType::BDS_SSR_HR_CLK_CORR:
+            case RtcmMessageType::SBS_SSR_HR_CLK_CORR:
             {
                 ssrOutMap = mongoReadOrbClk(t0, ssrMeta, masterIod, sys);
 
@@ -257,36 +257,36 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                     if (write == false)
                     {
-                        std::cout << "RtcmMessageType::" << messCode._to_string()
+                        std::cout << "RtcmMessageType::" << enum_to_string(messCode)
                                   << " was not written" << "\n";
                     }
                 }
 
                 break;
             }
-            case +RtcmMessageType::GPS_SSR_URA:
-            case +RtcmMessageType::GLO_SSR_URA:
-            case +RtcmMessageType::GAL_SSR_URA:
-            case +RtcmMessageType::QZS_SSR_URA:
-            case +RtcmMessageType::BDS_SSR_URA:
-            case +RtcmMessageType::SBS_SSR_URA:
+            case RtcmMessageType::GPS_SSR_URA:
+            case RtcmMessageType::GLO_SSR_URA:
+            case RtcmMessageType::GAL_SSR_URA:
+            case RtcmMessageType::QZS_SSR_URA:
+            case RtcmMessageType::BDS_SSR_URA:
+            case RtcmMessageType::SBS_SSR_URA:
             {
                 auto buffer = encodeSsrUra(ssrOutMap, messCode);
                 bool write  = encodeWriteMessageToBuffer(buffer);
 
                 if (write == false)
                 {
-                    std::cout << "RtcmMessageType::" << messCode._to_string() << " was not written"
+                    std::cout << "RtcmMessageType::" << enum_to_string(messCode) << " was not written"
                               << "\n";
                 }
 
                 break;
             }
-            case +RtcmMessageType::GPS_EPHEMERIS:
-            case +RtcmMessageType::BDS_EPHEMERIS:
-            case +RtcmMessageType::QZS_EPHEMERIS:
-            case +RtcmMessageType::GAL_FNAV_EPHEMERIS:
-            case +RtcmMessageType::GAL_INAV_EPHEMERIS:
+            case RtcmMessageType::GPS_EPHEMERIS:
+            case RtcmMessageType::BDS_EPHEMERIS:
+            case RtcmMessageType::QZS_EPHEMERIS:
+            case RtcmMessageType::GAL_FNAV_EPHEMERIS:
+            case RtcmMessageType::GAL_INAV_EPHEMERIS:
             {
                 bool write = false;
 
@@ -303,13 +303,13 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                 if (write == false)
                 {
-                    std::cout << "RtcmMessageType::" << messCode._to_string() << " was not written"
+                    std::cout << "RtcmMessageType::" << enum_to_string(messCode) << " was not written"
                               << "\n";
                 }
 
                 break;
             }
-            case +RtcmMessageType::GLO_EPHEMERIS:
+            case RtcmMessageType::GLO_EPHEMERIS:
             {
                 bool write = false;
 
@@ -326,14 +326,14 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                 if (write == false)
                 {
-                    std::cout << "RtcmMessageType::" << messCode._to_string() << " was not written"
+                    std::cout << "RtcmMessageType::" << enum_to_string(messCode) << " was not written"
                               << "\n";
                 }
 
                 break;
             }
 
-            case +RtcmMessageType::IGS_SSR:
+            case RtcmMessageType::IGS_SSR:
             {
                 SSRAtm                          ssrAtm;
                 map<E_Sys, map<SatSys, SSROut>> ssrOutMaps;
@@ -350,7 +350,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                 for (auto [subType, subUdi] : msgOpts.igs_udi)
                 {
                     BOOST_LOG_TRIVIAL(debug)
-                        << "message type: " << subType._to_string() << ", udi: " << subUdi;
+                        << "message type: " << enum_to_string(subType) << ", udi: " << subUdi;
 
                     if (subUdi == 0 || ((long int)targetTime) % subUdi != 0)
                     {
@@ -366,10 +366,10 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                     auto group = IGS_SSR_group(subType, sys);
                     switch (group)
                     {
-                        case 1:
-                        case 2:
-                        case 3:
-                        case 4:
+                        case IgsSSRSubtype::GROUP_ORB:
+                        case IgsSSRSubtype::GROUP_CLK:
+                        case IgsSSRSubtype::GROUP_CMB:
+                        case IgsSSRSubtype::GROUP_HRC:
                         {
                             auto sysOutMap = mongoReadOrbClk(t0, ssrMeta, masterIod, sys);
 
@@ -383,7 +383,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                             }
                             break;
                         }
-                        case 5:
+                        case IgsSSRSubtype::GROUP_COD:
                         {
                             auto sysCBMap = mongoReadCodeBias(ssrMeta, masterIod, sys);
 
@@ -395,7 +395,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                             }
                             break;
                         }
-                        case 6:
+                        case IgsSSRSubtype::GROUP_PHS:
                         {
                             auto sysPBMap = mongoReadPhaseBias(ssrMeta, masterIod, sys);
 
@@ -407,7 +407,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                             }
                             break;
                         }
-                        case 7:
+                        case IgsSSRSubtype::GROUP_URA:
                         {
                             // auto sysUraMap = mongoReadUra(t0, ssrMeta, masterIod, sys);	//
                             // Eugene: use sysOutMap? if (sysUraMap.empty() == false)
@@ -418,7 +418,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                             // }
                             break;
                         }
-                        case 8:
+                        case IgsSSRSubtype::GROUP_ION:
                         {
                             ssrAtm = mongoReadIGSIonosphere(targetTime, ssrMeta, masterIod);
 
@@ -438,49 +438,49 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                     switch (IGS_SSR_group(subType, sys))
                     {
-                        case 1:
+                        case IgsSSRSubtype::GROUP_ORB:
                         {
                             auto buffer = encodeIGS_ORB(ssrOutMaps[sys], sys, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case 2:
+                        case IgsSSRSubtype::GROUP_CLK:
                         {
                             auto buffer = encodeIGS_CLK(ssrOutMaps[sys], sys, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case 3:
+                        case IgsSSRSubtype::GROUP_CMB:
                         {
                             auto buffer = encodeIGS_CMB(ssrOutMaps[sys], sys, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case 4:
+                        case IgsSSRSubtype::GROUP_HRC:
                         {
                             auto buffer = encodeIGS_HRC(ssrOutMaps[sys], sys, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case 5:
+                        case IgsSSRSubtype::GROUP_COD:
                         {
                             auto buffer = encodeIGS_COD(ssrCodMaps[sys], sys, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case 6:
+                        case IgsSSRSubtype::GROUP_PHS:
                         {
                             auto buffer = encodeIGS_PHS(ssrPhsMaps[sys], sys, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case 7:
+                        case IgsSSRSubtype::GROUP_URA:
                         {
                             auto buffer = encodeIGS_URA(ssrUraMaps[sys], sys, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case 8:
+                        case IgsSSRSubtype::GROUP_ION:
                         {
                             auto buffer = encodeIGS_ATM(ssrAtm, last);
                             encodeWriteMessageToBuffer(buffer);
@@ -491,7 +491,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                 break;
             }
 
-            case +RtcmMessageType::COMPACT_SSR:
+            case RtcmMessageType::COMPACT_SSR:
             {
                 SSRAtm                   ssrAtm;
                 map<SatSys, SSROut>      ssrOutMap;
@@ -507,14 +507,14 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                         continue;
                     if (((long int)targetTime) % subUdi != 0)
                     {
-                        if (!new_mask && subType != +CompactSSRSubtype::SRV)
+                        if (!new_mask && subType != CompactSSRSubtype::SRV)
                         {
                             continue;
                         }
                     }
 
                     int subUdiIndex = 0;
-                    if (subType != +CompactSSRSubtype::SRV)
+                    if (subType != CompactSSRSubtype::SRV)
                         subUdiIndex = getUdiIndex(subUdi);
 
                     ssrMeta.updateIntIndex = subUdiIndex;
@@ -525,14 +525,14 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                     switch (subType)
                     {
-                        case +CompactSSRSubtype::MSK:
+                        case CompactSSRSubtype::MSK:
                             new_mask                  = true;
                             approvedMessages[subType] = subUdiIndex;
                             break;
-                        case +CompactSSRSubtype::ORB:
-                        case +CompactSSRSubtype::CLK:
-                        case +CompactSSRSubtype::CMB:
-                        case +CompactSSRSubtype::URA:
+                        case CompactSSRSubtype::ORB:
+                        case CompactSSRSubtype::CLK:
+                        case CompactSSRSubtype::CMB:
+                        case CompactSSRSubtype::URA:
                             for (auto [sys, proc] :
                                  acsConfig.process_sys)  // todo aaron, this is all just copying
                                                          // stuff from one map to another
@@ -547,7 +547,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                                 }
                             calculateSsrComb(t0, subUdi, ssrMeta, masterIod, ssrOutMap);
                             break;
-                        case +CompactSSRSubtype::COD:
+                        case CompactSSRSubtype::COD:
                             for (auto [sys, proc] : acsConfig.process_sys)
                                 if (proc)
                                 {
@@ -559,7 +559,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                                     }
                                 }
                             break;
-                        case +CompactSSRSubtype::PHS:
+                        case CompactSSRSubtype::PHS:
                             for (auto [sys, proc] : acsConfig.process_sys)
                                 if (proc)
                                 {
@@ -571,7 +571,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                                     }
                                 }
                             break;
-                        case +CompactSSRSubtype::BIA:
+                        case CompactSSRSubtype::BIA:
                             for (auto [sys, proc] : acsConfig.process_sys)
                                 if (proc)
                                 {
@@ -589,10 +589,10 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                                     }
                                 }
                             break;
-                        case +CompactSSRSubtype::TEC:
-                        case +CompactSSRSubtype::GRD:
-                        case +CompactSSRSubtype::ATM:
-                        case +CompactSSRSubtype::SRV:
+                        case CompactSSRSubtype::TEC:
+                        case CompactSSRSubtype::GRD:
+                        case CompactSSRSubtype::ATM:
+                        case CompactSSRSubtype::SRV:
                         {
                             ssrAtm = mongoReadCmpAtmosphere(targetTime, ssrMeta);
 
@@ -615,7 +615,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                 for (auto [subType, udi] : approvedMessages)
                 {
-                    if (subType == +CompactSSRSubtype::SRV || subType == +CompactSSRSubtype::MSK)
+                    if (subType == CompactSSRSubtype::SRV || subType == CompactSSRSubtype::MSK)
                     {
                         continue;
                     }
@@ -624,9 +624,9 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                 }
 
                 int lastReg = -1;
-                if (lastSubType == +CompactSSRSubtype::GRD ||
-                    lastSubType == +CompactSSRSubtype::TEC ||
-                    lastSubType == +CompactSSRSubtype::ATM)
+                if (lastSubType == CompactSSRSubtype::GRD ||
+                    lastSubType == CompactSSRSubtype::TEC ||
+                    lastSubType == CompactSSRSubtype::ATM)
                     for (auto& [regId, regData] : ssrAtm.atmosRegionsMap)
                         lastReg = regId;
 
@@ -636,62 +636,62 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
 
                     switch (subType)
                     {
-                        case +CompactSSRSubtype::SRV:
+                        case CompactSSRSubtype::SRV:
                         {
                             auto buffer = encodecompactSRV(ssrAtm);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::MSK:
+                        case CompactSSRSubtype::MSK:
                         {
                             auto buffer =
                                 encodecompactMSK(ssrOutMap, ssrCodMap, ssrPhsMap, ssrAtm, udi);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::ORB:
+                        case CompactSSRSubtype::ORB:
                         {
                             auto buffer = encodecompactORB(ssrOutMap, udi, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::CLK:
+                        case CompactSSRSubtype::CLK:
                         {
                             auto buffer = encodecompactCLK(ssrOutMap, udi, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::CMB:
+                        case CompactSSRSubtype::CMB:
                         {
                             auto buffer = encodecompactCMB(ssrOutMap, udi, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::URA:
+                        case CompactSSRSubtype::URA:
                         {
                             auto buffer = encodecompactURA(ssrOutMap, udi, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::COD:
+                        case CompactSSRSubtype::COD:
                         {
                             auto buffer = encodecompactCOD(ssrCodMap, udi, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::PHS:
+                        case CompactSSRSubtype::PHS:
                         {
                             auto buffer = encodecompactPHS(ssrPhsMap, udi, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::BIA:
+                        case CompactSSRSubtype::BIA:
                         {
                             auto buffer = encodecompactBIA(ssrCodMap, ssrPhsMap, udi, last);
                             encodeWriteMessageToBuffer(buffer);
                             break;
                         }
-                        case +CompactSSRSubtype::TEC:
+                        case CompactSSRSubtype::TEC:
                             for (auto& [regId, regData] : ssrAtm.atmosRegionsMap)
                             {
                                 auto buffer = encodecompactTEC(
@@ -704,7 +704,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                                 encodeWriteMessageToBuffer(buffer);
                             }
                             break;
-                        case +CompactSSRSubtype::GRD:
+                        case CompactSSRSubtype::GRD:
                             for (auto& [regId, regData] : ssrAtm.atmosRegionsMap)
                             {
                                 auto buffer = encodecompactGRD(
@@ -717,7 +717,7 @@ void NtripUploader::messageTimeoutHandler(const boost::system::error_code& err)
                                 encodeWriteMessageToBuffer(buffer);
                             }
                             break;
-                        case +CompactSSRSubtype::ATM:
+                        case CompactSSRSubtype::ATM:
                             for (auto& [regId, regData] : ssrAtm.atmosRegionsMap)
                             {
                                 auto buffer = encodecompactATM(

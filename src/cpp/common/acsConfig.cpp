@@ -209,7 +209,7 @@ bool replaceString(
 
         str.erase(index, subStr.size());
 
-        if (replacement.back() == '/')
+        if (!replacement.empty() && replacement.back() == '/')
             str.insert(index, replacement.substr(0, replacement.size() - 1));
         else
             str.insert(index, replacement);
@@ -469,10 +469,17 @@ string stringify(string& value)
 template <typename TYPE>
 string stringify(TYPE value)
 {
-    std::stringstream ss;
-    ss << std::boolalpha << value;
-
-    return ss.str();
+    // Check if TYPE is an enum
+    if constexpr (std::is_enum_v<TYPE>)
+    {
+        return enum_to_string(value);
+    }
+    else
+    {
+        std::stringstream ss;
+        ss << std::boolalpha << value;
+        return ss.str();
+    }
 }
 
 template <typename TYPE>
@@ -1647,14 +1654,14 @@ bool tryGetFromAny(
 template <typename ENUM>
 void addEnumDetails(string& stack)
 {
-    string enumName = ENUM::_name();
+    string enumName = string(magic_enum::enum_type_name<ENUM>());
 
-    auto names = ENUM::_names();
+    auto values = magic_enum::enum_values<ENUM>();
 
     if (enumDetailsMap.find(enumName) == enumDetailsMap.end())
-        for (int i = 0; i < ENUM::_size(); i++)
+        for (auto val : values)
         {
-            string enumOption = boost::algorithm::to_lower_copy((string)names[i]);
+            string enumOption = boost::algorithm::to_lower_copy(enum_to_string(val));
             enumDetailsMap[enumName].enums.push_back(enumOption);
         }
 
@@ -1676,14 +1683,16 @@ string getEnumOpts(bool vec = false)
     else
         enumOptions = " {";
 
-    auto names = ENUM::_names();
-    for (int i = 0; i < ENUM::_size(); i++)
+    auto values = magic_enum::enum_values<ENUM>();
+    int i = 0;
+    for (auto val : values)
     {
-        string enumOption = boost::algorithm::to_lower_copy((string)names[i]);
+        string enumOption = boost::algorithm::to_lower_copy(enum_to_string(val));
 
         if (i != 0)
             enumOptions += ", ";
         enumOptions += enumOption;
+        i++;
     }
 
     if (vec)
@@ -1700,9 +1709,9 @@ void warnAboutEnum(const string& wrong, const string& option, ENUM enumValue)
     BOOST_LOG_TRIVIAL(error) << wrong << " is not a valid entry for option: " << option << ".\n"
                              << "Valid options include:";
 
-    for (const char* name : ENUM::_names())
+    for (auto val : magic_enum::enum_values<ENUM>())
     {
-        BOOST_LOG_TRIVIAL(error) << name;
+        BOOST_LOG_TRIVIAL(error) << enum_to_string(val);
     }
 }
 
@@ -1719,7 +1728,7 @@ bool tryGetEnumOpt(
     string enumOptions = getEnumOpts<ENUM>();
 
     auto [optNode, stack] =
-        stringsToYamlObject(yamlBase, yamlNodeDescriptor, comment + enumOptions, out._to_string());
+        stringsToYamlObject(yamlBase, yamlNodeDescriptor, comment + enumOptions, enum_to_string(out));
 
     addAvailableOptions(stack);
 
@@ -1745,7 +1754,7 @@ bool tryGetEnumOpt(
 
     try
     {
-        out = ENUM::_from_string_nocase(value.c_str());
+        out = string_to_enum_nocase_throw<ENUM>(value.c_str());
         return true;
     }
     catch (...)
@@ -1786,12 +1795,12 @@ bool tryGetEnumVec(
     {
         try
         {
-            auto a = ENUM::_from_string_nocase(enumString.c_str());
+            auto a = string_to_enum_nocase_throw<ENUM>(enumString.c_str());
             enumVector.push_back(a);
         }
         catch (...)
         {
-            ENUM enumValue;
+            ENUM enumValue = ENUM();
             warnAboutEnum(enumString, yamlNodeDescriptor.back(), enumValue);
             continue;
         }
@@ -1835,9 +1844,8 @@ void tryGetKalmanFromYaml(
     }
 
     E_Period proc_noise_dt = E_Period::SECOND;
+    double   proc_noise_dt_f = 1.0;  // in seconds
 
-    {
-    }
     {
         auto& thing = output.estimate;
         setInited(
@@ -1946,13 +1954,14 @@ void tryGetKalmanFromYaml(
     {
         auto& thing = proc_noise_dt;
         tryGetEnumOpt(thing, newYaml, {"2@ process_noise_dt"}, "Time unit for process noise");
+        proc_noise_dt_f = periodToSeconds(proc_noise_dt);
     }
 
     if (isInited(output, output.process_noise))
     {
         for (auto& proc : output.process_noise)
         {
-            proc /= sqrt((int)proc_noise_dt);
+            proc /= sqrt(proc_noise_dt_f);
         }
     }
 
@@ -1960,7 +1969,7 @@ void tryGetKalmanFromYaml(
     {
         for (auto& tau : output.tau)
         {
-            tau *= (int)proc_noise_dt;
+            tau *= proc_noise_dt_f;
         }
     }
 }
@@ -2038,13 +2047,13 @@ void tryGetStreamFromYaml(
         "Url of caster to send messages to"
     );
 
-    for (auto msgType : RtcmMessageType::_values())
+    for (auto msgType : magic_enum::enum_values<RtcmMessageType>())
     {
-        if (msgType == +RtcmMessageType::IGS_SSR)
-            for (auto subType : IgsSSRSubtype::_values())
+        if (msgType == RtcmMessageType::IGS_SSR)
+            for (auto subType : magic_enum::enum_values<IgsSSRSubtype>())
             {
-                string str = (boost::format("@ rtcm_%4d_%03d") % msgType._to_integral() %
-                              subType._to_integral())
+                string str = (boost::format("@ rtcm_%4d_%03d") % static_cast<int>(msgType) %
+                              static_cast<int>(subType))
                                  .str();
 
                 auto msgOptions = stringsToYamlObject(
@@ -2062,11 +2071,11 @@ void tryGetStreamFromYaml(
                 }
             }
 
-        else if (msgType == +RtcmMessageType::COMPACT_SSR)
-            for (auto subType : CompactSSRSubtype::_values())
+        else if (msgType == RtcmMessageType::COMPACT_SSR)
+            for (auto subType : magic_enum::enum_values<CompactSSRSubtype>())
             {
-                string str = (boost::format("@ rtcm_%4d_%02d") % msgType._to_integral() %
-                              subType._to_integral())
+                string str = (boost::format("@ rtcm_%4d_%02d") % static_cast<int>(msgType) %
+                              static_cast<int>(subType))
                                  .str();
 
                 auto msgOptions = stringsToYamlObject(
@@ -2086,7 +2095,7 @@ void tryGetStreamFromYaml(
 
         else
         {
-            string str = "@ rtcm_" + std::to_string(msgType);
+            string str = "@ rtcm_" + std::to_string(static_cast<int>(msgType));
 
             auto msgOptions =
                 stringsToYamlObject(outStreamsYaml, {"0@ messages", str}, "Message type to output");
@@ -3802,7 +3811,7 @@ void getOptionsFromYaml(
         }
     }
 
-    for (E_ObsCode2 obsCode2 : E_ObsCode2::_values())
+    for (E_ObsCode2 obsCode2 : magic_enum::enum_values<E_ObsCode2>())
     {
         {
             auto& thing = recOpts.rinex23Conv.codeConv[obsCode2];
@@ -3812,7 +3821,7 @@ void getOptionsFromYaml(
                 tryGetEnumOpt(
                     thing,
                     recNode,
-                    {"@ rinex2", "@ rnx_code_conversions", std::string(obsCode2._to_string())}
+                    {"@ rinex2", "@ rnx_code_conversions", enum_to_string(obsCode2)}
                 )
             );
         }
@@ -3822,7 +3831,7 @@ void getOptionsFromYaml(
             vector<string> yamlPath = {
                 "@ rinex2",
                 "@ rnx_phase_conversions",
-                std::string(obsCode2._to_string())
+                enum_to_string(obsCode2)
             };
 
             auto [phaseNode, stack] = stringsToYamlObject(recNode, yamlPath, "");
@@ -3838,7 +3847,7 @@ void getOptionsFromYaml(
                         try
                         {
                             string    codeStr = item.as<string>();
-                            E_ObsCode obsCode = E_ObsCode::_from_string(codeStr.c_str());
+                            E_ObsCode obsCode = string_to_enum_nocase_throw<E_ObsCode>(codeStr.c_str());
                             thing.push_back(obsCode);
                         }
                         catch (...)
@@ -3853,7 +3862,7 @@ void getOptionsFromYaml(
                     try
                     {
                         string    codeStr = phaseNode.as<string>();
-                        E_ObsCode obsCode = E_ObsCode::_from_string(codeStr.c_str());
+                        E_ObsCode obsCode = string_to_enum_nocase_throw<E_ObsCode>(codeStr.c_str());
                         thing.push_back(obsCode);
                     }
                     catch (...)
@@ -4140,17 +4149,16 @@ void tryGetScaledFromYaml(
         number_parameter,  ///< List of keys of the hierarchy to the value to be set
     const vector<string>&
         scale_parameter,   ///< List of keys of the hierarchy to the scale to be applied
-    ENUM (&_from_string_nocase)(const char*),  ///< Function to decode scale enum strings
     const string& comment = ""                 ///< Description to use for documentation
 )
 {
     double number       = output;
-    ENUM   number_units = ENUM::_from_integral(1);
+    ENUM   number_units = int_to_enum<ENUM>(1);
 
     tryGetFromYaml(number, node, number_parameter, comment);
     tryGetEnumOpt(number_units, node, scale_parameter);
 
-    number *= (int)number_units;
+    number *= periodToSeconds(number_units);
     if (number != 0)
     {
         output = number;
@@ -4488,9 +4496,8 @@ void ACSConfig::sanityChecks()
 
     if (acsConfig.simulate_real_time == false)
     {
-        for (int i = E_Sys::GPS; i < E_Sys::SUPPORTED; i++)
+        for (E_Sys sys : magic_enum::enum_values<E_Sys>())
         {
-            E_Sys sys           = E_Sys::_values()[i];
             eph_time_delay[sys] = default_eph_time_delay[sys];
         }
     }
@@ -4570,10 +4577,8 @@ bool ACSConfig::parse(
     recOptsMap.clear();
     defaultOutputOptions();
 
-    for (int i = E_Sys::GPS; i < E_Sys::SUPPORTED; i++)
+    for (E_Sys sys : magic_enum::enum_values<E_Sys>())
     {
-        E_Sys sys = E_Sys::_values()[i];
-
         code_priorities[sys] = default_code_priorities;
         eph_time_delay[sys]  = default_eph_time_delay[sys];
     }
@@ -5001,12 +5006,11 @@ bool ACSConfig::parse(
                     "applies to the <LOGTIME> template variables in filenames"
                 );
 
-                tryGetScaledFromYaml(
+                tryGetScaledFromYaml<E_Period>(
                     rotate_period,
                     output_rotation,
                     {"@ period"},
                     {"@ period_units"},
-                    E_Period::_from_string_nocase,
                     "Period that times will be rounded by to generate template variables in "
                     "filenames"
                 );
@@ -6794,14 +6798,12 @@ bool ACSConfig::parse(
                     "Maximum satellite clock offset (meters) used in broadcast alignment"
                 );
 
-                for (int i = E_Sys::GPS; i < E_Sys::SUPPORTED; i++)
+                for (E_Sys sys : magic_enum::enum_values<E_Sys>())
                 {
-                    E_Sys sys = E_Sys::_values()[i];
-
                     auto sys_options = stringsToYamlObject(
                         general,
-                        {"1! sys_options", sys._to_string()},
-                        (string) "Options for the " + sys._to_string() + " constellation"
+                        {"1! sys_options", enum_to_string(sys)},
+                        (string) "Options for the " + enum_to_string(sys) + " constellation"
                     );
 
                     tryGetFromYaml(
@@ -6953,17 +6955,16 @@ bool ACSConfig::parse(
                     wait_next_epoch,
                     epoch_control,
                     {"@ wait_next_epoch"},
-                    "Time to wait for next epochs data before skipping the epoch (will default to "
-                    "epoch_interval as an "
-                    "appropriate minimum value for realtime)"
+                    "Maximum time for data being processed at an epoch over which PEA start "
+                    "skipping next epoch (will default to epoch_interval+0.05 as an appropriate "
+                    "minimum value for realtime)"
                 );
                 tryGetFromYaml(
                     max_rec_latency,
                     epoch_control,
                     {"@ max_rec_latency"},
-                    "Time to wait from the reception of the first data of an epoch before skipping "
-                    "receivers with data "
-                    "still unreceived"
+                    "Maximum time to wait from the reception of the first data of an epoch before "
+                    "skipping receivers with data still unreceived"
                 );
                 tryGetFromYaml(
                     require_obs,
@@ -7921,14 +7922,20 @@ bool ACSConfig::parse(
                     {"@ max_gdop"},
                     "Maximum dilution of precision before error is flagged"
                 );
-                tryGetFromYaml(
-                    sppOpts.raim,
+
+                auto raim = stringsToYamlObject(
                     outlier_screening,
                     {"@ raim"},
-                    "Enable Receiver Autonomous Integrity Monitoring. When SPP fails further SPP "
-                    "solutions are "
-                    "calculated with subsets of observations with the aim of eliminating a problem "
-                    "satellite"
+                    "Apply Receiver Autonomous Integrity Monitoring (RAIM). When SPP fails further "
+                    "SPP solutions are calculated with subsets of observations with the aim of "
+                    "eliminating a problem satellite"
+                );
+                tryGetFromYaml(sppOpts.raim.enable, raim, {"@ enable"}, "Enable RAIM in SPP");
+                tryGetFromYaml(
+                    sppOpts.raim.max_iterations,
+                    raim,
+                    {"@ max_iterations"},
+                    "Maximum number of measurements to exclude using RAIM"
                 );
 
                 getFilterOptions(spp, sppOpts);
@@ -8029,33 +8036,29 @@ bool ACSConfig::parse(
             {
                 auto predictions = stringsToYamlObject(processing_options, {"5@ predictions"});
 
-                tryGetScaledFromYaml(
+                tryGetScaledFromYaml<E_Period>(
                     mongoOpts.prediction_offset,
                     predictions,
                     {"4@ offset"},
-                    {"@ interval_units"},
-                    E_Period::_from_string_nocase
+                    {"@ interval_units"}
                 );
-                tryGetScaledFromYaml(
+                tryGetScaledFromYaml<E_Period>(
                     mongoOpts.prediction_interval,
                     predictions,
                     {"4@ interval"},
-                    {"@ interval_units"},
-                    E_Period::_from_string_nocase
+                    {"@ interval_units"}
                 );
-                tryGetScaledFromYaml(
+                tryGetScaledFromYaml<E_Period>(
                     mongoOpts.forward_prediction_duration,
                     predictions,
                     {"4@ forward_duration"},
-                    {"@ duration_units"},
-                    E_Period::_from_string_nocase
+                    {"@ duration_units"}
                 );
-                tryGetScaledFromYaml(
+                tryGetScaledFromYaml<E_Period>(
                     mongoOpts.reverse_prediction_duration,
                     predictions,
                     {"4@ reverse_duration"},
-                    {"@ duration_units"},
-                    E_Period::_from_string_nocase
+                    {"@ duration_units"}
                 );
             }
 
@@ -8281,34 +8284,34 @@ bool ACSConfig::parse(
             );
 
             tryGetFromYaml(
-                mongoOpts[E_Mongo::PRIMARY].suffix,
+                mongoOpts[static_cast<int>(E_Mongo::PRIMARY)].suffix,
                 mongo,
                 {"3@ primary_suffix"},
                 "Suffix to append to database elements to make distinctions between runs for "
                 "comparison"
             );
-            tryGetFromYaml(mongoOpts[E_Mongo::PRIMARY].database, mongo, {"3@ primary_database"});
+            tryGetFromYaml(mongoOpts[static_cast<int>(E_Mongo::PRIMARY)].database, mongo, {"3@ primary_database"});
             tryGetFromYaml(
-                mongoOpts[E_Mongo::PRIMARY].uri,
+                mongoOpts[static_cast<int>(E_Mongo::PRIMARY)].uri,
                 mongo,
                 {"3@ primary_uri"},
                 "Location and port of the mongo database to connect to"
             );
 
             tryGetFromYaml(
-                mongoOpts[E_Mongo::SECONDARY].suffix,
+                mongoOpts[static_cast<int>(E_Mongo::SECONDARY)].suffix,
                 mongo,
                 {"3@ secondary_suffix"},
                 "Suffix to append to database elements to make distinctions between runs for "
                 "comparison"
             );
             tryGetFromYaml(
-                mongoOpts[E_Mongo::SECONDARY].database,
+                mongoOpts[static_cast<int>(E_Mongo::SECONDARY)].database,
                 mongo,
                 {"3@ secondary_database"}
             );
             tryGetFromYaml(
-                mongoOpts[E_Mongo::SECONDARY].uri,
+                mongoOpts[static_cast<int>(E_Mongo::SECONDARY)].uri,
                 mongo,
                 {"3@ secondary_uri"},
                 "Location and port of the mongo database to connect to"
@@ -8539,12 +8542,12 @@ bool ACSConfig::parse(
         replaceTags(network_statistics_json_directory);
         replaceTags(network_statistics_json_filename);
 
-        replaceTags(mongoOpts[E_Mongo::PRIMARY].uri);
-        replaceTags(mongoOpts[E_Mongo::PRIMARY].suffix);
-        replaceTags(mongoOpts[E_Mongo::PRIMARY].database);
-        replaceTags(mongoOpts[E_Mongo::SECONDARY].uri);
-        replaceTags(mongoOpts[E_Mongo::SECONDARY].suffix);
-        replaceTags(mongoOpts[E_Mongo::SECONDARY].database);
+        replaceTags(mongoOpts[static_cast<int>(E_Mongo::PRIMARY)].uri);
+        replaceTags(mongoOpts[static_cast<int>(E_Mongo::PRIMARY)].suffix);
+        replaceTags(mongoOpts[static_cast<int>(E_Mongo::PRIMARY)].database);
+        replaceTags(mongoOpts[static_cast<int>(E_Mongo::SECONDARY)].uri);
+        replaceTags(mongoOpts[static_cast<int>(E_Mongo::SECONDARY)].suffix);
+        replaceTags(mongoOpts[static_cast<int>(E_Mongo::SECONDARY)].database);
     }
 
     // 	get template options

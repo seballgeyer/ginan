@@ -298,7 +298,7 @@ bool ionDelay(
         ionppp(pos, azel, tec.rb, hion, posp);
         double fs = ionmapf(pos, azel, mapFn, layerHeight);
 
-        if (frame == +E_IonoFrame::SUN_FIXED)
+        if (frame == E_IonoFrame::SUN_FIXED)
         {
             /* earth rotation correction (sun-fixed coordinate) */
             posp[1] += 2 * PI * (time - tec.time).to_double() / 86400;

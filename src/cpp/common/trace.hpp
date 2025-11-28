@@ -202,7 +202,7 @@ extern boost::log::trivial::severity_level acsSeverity;
         if (level > traceLevel)                                                                \
             continue;                                                                          \
                                                                                                \
-        if (acsConfig.output_json_trace == false && acsConfig.mongoOpts.output_trace == false) \
+        if (acsConfig.output_json_trace == false && acsConfig.mongoOpts.output_trace == E_Mongo::NONE) \
         {                                                                                      \
             continue;                                                                          \
         }                                                                                      \

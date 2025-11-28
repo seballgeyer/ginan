@@ -174,6 +174,8 @@ include_directories(${EIGEN3_INCLUDE_DIRS})
 
 find_package(mongocxx	REQUIRED)
 find_package(bsoncxx	REQUIRED)
+# Using local magic_enum header in 3rdparty directory
+
 set(NETCDF_CXX "YES")
 find_package(NetCDF)
 if (NOT NetCDF_FOUND)
@@ -228,6 +230,8 @@ if (mongocxx_FOUND)
 else()
 	message(STATUS "Mongocxx was not found")
 endif()
+
+
 
 message(STATUS "Found C++ compiler:       " ${CMAKE_CXX_COMPILER_ID} " " ${CMAKE_CXX_COMPILER_VERSION})
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cpp/pea/peaLibVersion.h.in ${CMAKE_CURRENT_SOURCE_DIR}/cpp/pea/peaLibVersion.h @ONLY)

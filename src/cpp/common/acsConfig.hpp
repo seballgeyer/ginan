@@ -418,7 +418,7 @@ struct SlipOptions
 
 struct ExcludeOptions
 {
-    bool bad_spp   = true;
+    bool bad_spp   = false;
     bool config    = true;
     bool eclipse   = true;
     bool elevation = true;
@@ -738,7 +738,11 @@ struct SppOptions : FilterOptions
     double elevation_mask_deg  = 0;
     double max_gdop            = 30;
     double sigma_scaling       = 1;
-    bool   raim                = true;
+    struct
+    {
+        bool   enable         = true;
+        double max_iterations = 2;
+    } raim;
 
     E_IonoMode iono_mode = E_IonoMode::IONO_FREE_LINEAR_COMBO;
 };
@@ -788,7 +792,7 @@ struct Rinex23Conversion
     {
         for (auto& [code2, code3] : rhs.codeConv)
         {
-            if (code3 != +E_ObsCode::NONE)
+            if (code3 != E_ObsCode::NONE)
                 codeConv[code2] = code3;
         }
         for (auto& [code2, code3List] : rhs.phasConv)
@@ -1052,7 +1056,7 @@ struct CommonOptions
     {
         bool   enable          = true;
         double default_bias    = 0;
-        double undefined_sigma = 0;
+        double undefined_sigma = 1;
     } codeBiasModel;
 
     struct

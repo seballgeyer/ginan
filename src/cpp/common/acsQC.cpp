@@ -100,20 +100,20 @@ void detslp_ll(
                 continue;
             }
 
-            int f = ft;
-            if (sig.L == 0 || (sig.LLI & 0x03) == 0)
-            {
-                continue;
-            }
+            // removed unused variable 'f'
+                        if (sig.L == 0 || (sig.LLI & 0x03) == 0)
+                        {
+                            continue;
+                        }
 
             tracepdeex(
                 3,
                 trace,
-                "\n%s: slip detected: epoch=%s sat=%s f=F%d\n",
+                "\n%s: slip detected: epoch=%s sat=%s f=%s\n",
                 __FUNCTION__,
                 obs.time.to_string(2).c_str(),
                 obs.Sat.id().c_str(),
-                ft
+                enum_to_string(ft)
             );
 
             obs.satStat_ptr->sigStatMap[ft2string(ft)].slip.LLI      = true;
@@ -339,7 +339,7 @@ void scdia(
 
     lc_t* lc_pre_ptr;
 
-    if (filterMode == +E_FilterMode::LSQ)
+    if (filterMode == E_FilterMode::LSQ)
         lc_pre_ptr = &satStat.lc_pre;
     else
         lc_pre_ptr = &satStat.flt.lc_pre;
@@ -416,7 +416,7 @@ void scdia(
     VectorXd xp = VectorXd::Zero(n);
     MatrixXd Pp = MatrixXd::Zero(n, n);
 
-    if (filterMode == +E_FilterMode::LSQ)
+    if (filterMode == E_FilterMode::LSQ)
     {
         MatrixXd N  = MatrixXd::Zero(n, m);
         VectorXd N1 = VectorXd::Zero(n);
@@ -492,7 +492,7 @@ void scdia(
     double   s[2];
     lambda(trace, nf, 2, a.data(), Qa.data(), F.data(), s, acsConfig.predefined_fail, pass);
 
-    if (filterMode == +E_FilterMode::LSQ)
+    if (filterMode == E_FilterMode::LSQ)
     {
         /* least-squares */
         satStat.amb[0] = 0;

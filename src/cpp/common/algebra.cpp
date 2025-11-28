@@ -280,7 +280,7 @@ E_Source KFState::getKFValue(
     {
         E_Source found = getPseudoValue(key, value, variance_ptr, adjustment_ptr);
 
-        if (found)
+        if (found != E_Source::NONE)
             return E_Source::PSEUDO;
 
         if (allowAlternate == false || alternate_ptr == nullptr)
@@ -289,7 +289,7 @@ E_Source KFState::getKFValue(
         }
 
         found = alternate_ptr->getKFValue(key, value, variance_ptr, adjustment_ptr);
-        if (found)
+        if (found != E_Source::NONE)
             return E_Source::REMOTE;
 
         return E_Source::NONE;
@@ -1020,9 +1020,8 @@ void KFState::stateTransition(
  */
 void KFState::leastSquareSigmaChecks(
     RejectCallbackDetails& callbackDetails,
-    double                 adjustment,  ///< The adjustments from least squares estimation
-    MatrixXd&              Pp,          ///< Post-fit covariance of parameters
-    KFStatistics&          statistics   ///< Test statistics
+    MatrixXd&              Pp,         ///< Post-fit covariance of parameters
+    KFStatistics&          statistics  ///< Test statistics
 )
 {
     auto& kfMeas = callbackDetails.kfMeas;
@@ -1040,35 +1039,35 @@ void KFState::leastSquareSigmaChecks(
     if (lsqOpts.sigma_check)
     {
         // use 'array' for component-wise calculations
-        measNumerator =
-            V.array().square();  // delta squared  //Eugene: can't understand why prefits
-        measDenominator =
-            R.diagonal().array().max(SQR(adjustment));  // Eugene: don't know what this is doing
+        measNumerator   = V.array();
+        measDenominator = R.diagonal().array();
     }
     else if (lsqOpts.omega_test)
     {
         MatrixXd HPH_ = H * Pp * H.transpose();
 
         // use 'array' for component-wise calculations
-        measNumerator = VV.array().square();  // weighted residuals squared, the sign doesn't matter
-        measDenominator = (R.diagonal() - HPH_.diagonal()).array();  // weights
+        measNumerator   = VV.array();
+        measDenominator = (R.diagonal() - HPH_.diagonal()).array();
     }
 
-    measRatios = measNumerator / measDenominator;
+    measRatios = measNumerator / measDenominator.sqrt();
     measRatios = measRatios.isFinite().select(
         measRatios,
         0
     );  // set ratio to 0 if corresponding variance is 0, e.g. ONE state, clk rate states
 
-    statistics.sumOfSquares = measRatios.sum();
+    kfMeas.postfitRatios = measRatios;
+
+    statistics.sumOfSquares = measRatios.square().sum();
     statistics.averageRatio = measRatios.mean();
 
     Eigen::ArrayXd::Index measIndex;
 
-    double maxMeasRatio = measRatios.maxCoeff(&measIndex);
+    double maxMeasRatio = measRatios.abs().maxCoeff(&measIndex);
 
     // if any are outside the expected values, flag an error
-    if (maxMeasRatio > SQR(lsqOpts.meas_sigma_threshold))
+    if (maxMeasRatio > lsqOpts.meas_sigma_threshold)
     {
         trace << "\n"
               << time << "\tLARGE MEAS    ERROR OF : " << maxMeasRatio << "\tAT " << measIndex
@@ -1223,7 +1222,7 @@ void outputResiduals(
     tracepdeex(
         0,
         trace,
-        "#\t%2s\t%22s\t%12s\t%4s\t%4s\t%7s\t%13s\t%13s\t%16s",
+        "#\t%2s\t%22s\t%12s\t%4s\t%4s\t%7s\t%17s\t%17s\t%16s",
         "It",
         "Time",
         "Type",
@@ -1247,22 +1246,38 @@ void outputResiduals(
 
     for (int i = begH; i < endH; i++)
     {
+        char preResStr[20];
+        char postResStr[20];
         char sigmaStr[20];
         char preRatioStr[20];
         char postRatioStr[20];
 
+        double V = kfMeas.V(i);
+
+        if (V == 0 || (fabs(V) > 0.0001 && fabs(V) < 1e7))
+            snprintf(preResStr, sizeof(preResStr), "%17.8f", V);
+        else
+            snprintf(preResStr, sizeof(preResStr), "%17.4e", V);
+
+        double VV = kfMeas.VV(i);
+
+        if (VV == 0 || (fabs(VV) > 0.0001 && fabs(VV) < 1e7))
+            snprintf(postResStr, sizeof(postResStr), "%17.8f", VV);
+        else
+            snprintf(postResStr, sizeof(postResStr), "%17.4e", VV);
+
         double sigma = sqrt(kfMeas.R(i, i));
 
         if (sigma == 0 || (fabs(sigma) > 0.0001 && fabs(sigma) < 1e7))
-            snprintf(sigmaStr, sizeof(sigmaStr), "%16.7f", sigma);
+            snprintf(sigmaStr, sizeof(sigmaStr), "%16.8f", sigma);
         else
-            snprintf(sigmaStr, sizeof(sigmaStr), "%16.3e", sigma);
+            snprintf(sigmaStr, sizeof(sigmaStr), "%16.4e", sigma);
 
         double preRatio = 0;
         if (i < kfMeas.prefitRatios.rows())
             preRatio = kfMeas.prefitRatios(i);
 
-        if (preRatio == 0 || (fabs(preRatio) > 0.0001 && fabs(preRatio) < 1e7))
+        if (preRatio == 0 || (fabs(preRatio) > 0.001 && fabs(preRatio) < 1e7))
             snprintf(preRatioStr, sizeof(preRatioStr), "%16.7f", preRatio);
         else
             snprintf(preRatioStr, sizeof(preRatioStr), "%16.3e", preRatio);
@@ -1271,7 +1286,7 @@ void outputResiduals(
         if (i < kfMeas.postfitRatios.rows())
             postRatio = kfMeas.postfitRatios(i);
 
-        if (postRatio == 0 || (fabs(postRatio) > 0.0001 && fabs(postRatio) < 1e7))
+        if (postRatio == 0 || (fabs(postRatio) > 0.001 && fabs(postRatio) < 1e7))
             snprintf(postRatioStr, sizeof(postRatioStr), "%16.7f", postRatio);
         else
             snprintf(postRatioStr, sizeof(postRatioStr), "%16.3e", postRatio);
@@ -1279,12 +1294,12 @@ void outputResiduals(
         tracepdeex(
             0,
             trace,
-            "%%\t%2d\t%22s\t%30s\t%13.8f\t%13.8f\t%16s",
+            "%%\t%2d\t%22s\t%30s\t%17.8f\t%17.8f\t%16s",
             iteration,
             kfMeas.time.to_string(2).c_str(),
             ((string)kfMeas.obsKeys[i]).c_str(),
-            kfMeas.V(i),
-            kfMeas.VV(i),
+            preResStr,
+            postResStr,
             sigmaStr
         );
         tracepdeex(5, trace, "\t%16s", preRatioStr);
@@ -2565,7 +2580,7 @@ void KFState::filterKalman(
             );
 
             bool stopIterating = true;
-            if (rejectCallbackDetails.kfKey.type)
+            if (rejectCallbackDetails.kfKey.type != int_to_enum<KF>(0))
             {
                 stringBuffer << "\n"
                              << "Prefit check failed state test" << "\n";
@@ -2670,27 +2685,67 @@ void KFState::filterKalman(
                         dx.segment(fc.begX, fc.numX);
             }
 
-            if (postfitOpts.sigma_check == false && postfitOpts.omega_test == false)
+            bool stopIterating = true;
+
+            if (postfitOpts.sigma_check || postfitOpts.omega_test)
             {
-                break;
+                std::stringstream stringBuffer;
+
+                RejectCallbackDetails rejectCallbackDetails(stringBuffer, *this, kfMeas);
+                rejectCallbackDetails.stage = E_FilterStage::POSTFIT;
+
+                postFitSigmaChecks(
+                    rejectCallbackDetails,
+                    dx,
+                    Qinv,
+                    QinvH,
+                    statistics,
+                    fc.begX,
+                    fc.numX,
+                    fc.begH,
+                    fc.numH
+                );
+
+                if (rejectCallbackDetails.kfKey.type != int_to_enum<KF>(0))
+                {
+                    stringBuffer << "\n"
+                                 << "Postfit check failed state test" << "\n";
+                    doStateRejectCallbacks(rejectCallbackDetails);
+                    stopIterating = false;
+                }
+                else if (rejectCallbackDetails.measIndex >= 0)
+                {
+                    stringBuffer << "\n"
+                                 << "Postfit check failed measurement test" << "\n";
+                    doMeasRejectCallbacks(rejectCallbackDetails);
+                    stopIterating = false;
+                }
+
+                if (stopIterating)
+                {
+                    stringBuffer << "\n"
+                                 << "Postfit check passed" << "\n";
+                }
+                else
+                {
+                    if (i == postfitOpts.max_iterations - 1)
+                    {
+                        BOOST_LOG_TRIVIAL(warning)
+                            << "Max post-fit filter iterations limit reached at " << time << " in "
+                            << suffix << ", limit is " << postfitOpts.max_iterations;
+                        stringBuffer << "\n"
+                                     << "Warning: Max post-fit filter iterations limit reached at "
+                                     << time << " in " << suffix << ", limit is "
+                                     << postfitOpts.max_iterations << "\n";
+
+                        stopIterating = true;
+                    }
+                }
+
+                trace << stringBuffer.str();
+                if (fc.trace_ptr)
+                    *fc.trace_ptr << stringBuffer.str();
             }
-
-            std::stringstream stringBuffer;
-
-            RejectCallbackDetails rejectCallbackDetails(stringBuffer, *this, kfMeas);
-            rejectCallbackDetails.stage = E_FilterStage::POSTFIT;
-
-            postFitSigmaChecks(
-                rejectCallbackDetails,
-                dx,
-                Qinv,
-                QinvH,
-                statistics,
-                fc.begX,
-                fc.numX,
-                fc.begH,
-                fc.numH
-            );
 
             if (output_residuals)
             {
@@ -2705,47 +2760,6 @@ void KFState::filterKalman(
 
                 kfStateCopy.outputStates(trace, suffix, i, fc.begH, fc.numH);
             }
-
-            bool stopIterating = true;
-            if (rejectCallbackDetails.kfKey.type)
-            {
-                stringBuffer << "\n"
-                             << "Postfit check failed state test" << "\n";
-                doStateRejectCallbacks(rejectCallbackDetails);
-                stopIterating = false;
-            }
-            else if (rejectCallbackDetails.measIndex >= 0)
-            {
-                stringBuffer << "\n"
-                             << "Postfit check failed measurement test" << "\n";
-                doMeasRejectCallbacks(rejectCallbackDetails);
-                stopIterating = false;
-            }
-
-            if (stopIterating)
-            {
-                stringBuffer << "\n"
-                             << "Postfit check passed" << "\n";
-            }
-            else
-            {
-                if (i == postfitOpts.max_iterations - 1)
-                {
-                    BOOST_LOG_TRIVIAL(warning)
-                        << "Max post-fit filter iterations limit reached at " << time << " in "
-                        << suffix << ", limit is " << postfitOpts.max_iterations;
-                    stringBuffer << "\n"
-                                 << "Warning: Max post-fit filter iterations limit reached at "
-                                 << time << " in " << suffix << ", limit is "
-                                 << postfitOpts.max_iterations << "\n";
-
-                    stopIterating = true;
-                }
-            }
-
-            trace << stringBuffer.str();
-            if (fc.trace_ptr)
-                *fc.trace_ptr << stringBuffer.str();
 
             if (stopIterating)
             {
@@ -2818,7 +2832,7 @@ void KFState::filterKalman(
             }
         }
 
-        if (chiSquareTest.mode == +E_ChiSqMode::STATE)
+        if (chiSquareTest.mode == E_ChiSqMode::STATE)
             testStatistics.dof = x.rows() - 1;
         else
             testStatistics.dof =
@@ -2848,7 +2862,7 @@ void KFState::filterKalman(
               << "\tChi-square per DOF: " << testStatistics.chiSqPerDof << "\n";
     }
 
-    if (acsConfig.mongoOpts.output_test_stats)
+    if (acsConfig.mongoOpts.output_test_stats != E_Mongo::NONE)
     {
         mongoTestStat(*this, testStatistics);
     }
@@ -2901,11 +2915,12 @@ void KFState::filterKalman(
  * states.
  */
 bool KFState::leastSquareInitStates(
-    Trace&        trace,       ///< Trace file for output
-    KFMeas&       kfMeas,      ///< Measurement object
-    const string& suffix,      ///< Suffix to append to residuals block
-    bool          initCovars,  ///< Option to also initialise off-diagonal covariance values
-    bool          innovReady   ///< Apriori states available and residuals already calculated
+    Trace&        trace,        ///< Trace file for output
+    KFMeas&       kfMeas,       ///< Measurement object
+    const string& suffix,       ///< Suffix to append to residuals block
+    bool          initCovars,   ///< Option to also initialise off-diagonal covariance values
+    bool          innovReady,   ///< Apriori states available and residuals already calculated
+    bool          skipLsqCheck  ///< Skip outlier screening in case not converged or within SPP RAIM
 )
 {
     lsqRequired = false;
@@ -3038,16 +3053,6 @@ bool KFState::leastSquareInitStates(
 
         leastSquareMeasSubs.VV = leastSquareMeasSubs.V - leastSquareMeasSubs.H * xp;
 
-        if (output_residuals && traceLevel >= 5)
-        {
-            outputResiduals(trace, leastSquareMeasSubs, suffix, i, 0, leastSquareMeasSubs.H.rows());
-        }
-
-        double adjustment =
-            xp.cwiseAbs().maxCoeff();  // Avoid using norm() as numX may vary w/ multi-GNSS
-        if (adjustment >= 100000)      // Only check outliers nearly after converge
-            break;
-
         if (chiSquareTest.enable)
         {
             chiQC(trace, leastSquareMeasSubs);
@@ -3057,53 +3062,58 @@ bool KFState::leastSquareInitStates(
             else
                 trace << "\nChi-square test failed: ";
 
-            trace << "dof = " << dof << "\tchi^2 = " << chi2 << "\tthres = " << qc;
+            trace << "dof=" << dof << "\tchi^2=" << chi2 << "\tthres=" << qc << "\tsigma0=" << sqrt(chi2PerDof);
         }
-
-        if (lsqOpts.sigma_check == false && lsqOpts.omega_test == false)
-        {
-            break;
-        }
-
-        std::stringstream stringBuffer;
-
-        RejectCallbackDetails rejectCallbackDetails(stringBuffer, *this, leastSquareMeasSubs);
-        rejectCallbackDetails.stage = E_FilterStage::LSQ;
-
-        leastSquareSigmaChecks(rejectCallbackDetails, adjustment, Pp, statistics);
 
         bool stopIterating = true;
-        if (rejectCallbackDetails.measIndex >= 0)
-        {
-            stringBuffer << "\n"
-                         << "Least squares check failed";
-            doMeasRejectCallbacks(rejectCallbackDetails);
-            stopIterating = false;
-        }
 
-        if (stopIterating)
+        if ((lsqOpts.sigma_check || lsqOpts.omega_test) && skipLsqCheck == false)
         {
-            stringBuffer << "\n"
-                         << "Least squares check passed";
-            sigmaPass = true;
-        }
-        else
-        {
-            if (i == lsqOpts.max_iterations - 1)
+            std::stringstream stringBuffer;
+
+            RejectCallbackDetails rejectCallbackDetails(stringBuffer, *this, leastSquareMeasSubs);
+            rejectCallbackDetails.stage = E_FilterStage::LSQ;
+
+            leastSquareSigmaChecks(rejectCallbackDetails, Pp, statistics);
+
+            if (rejectCallbackDetails.measIndex >= 0)
             {
-                BOOST_LOG_TRIVIAL(warning)
-                    << "Max least squares iterations limit reached at " << time << " in " << suffix
-                    << ", limit is " << lsqOpts.max_iterations;
                 stringBuffer << "\n"
-                             << "Warning: Max least squares iterations limit reached at " << time
-                             << " in " << suffix << ", limit is " << lsqOpts.max_iterations;
-
-                stopIterating = true;
-                sigmaPass     = false;
+                             << "Least squares check failed";
+                doMeasRejectCallbacks(rejectCallbackDetails);
+                stopIterating = false;
             }
+
+            if (stopIterating)
+            {
+                stringBuffer << "\n"
+                             << "Least squares check passed";
+                sigmaPass = true;
+            }
+            else
+            {
+                if (i == lsqOpts.max_iterations - 1)
+                {
+                    BOOST_LOG_TRIVIAL(debug)
+                        << "Max least squares iterations limit reached at " << time << " in "
+                        << suffix << ", limit is " << lsqOpts.max_iterations;
+                    stringBuffer << "\n"
+                                 << "Warning: Max least squares iterations limit reached at "
+                                 << time << " in " << suffix << ", limit is "
+                                 << lsqOpts.max_iterations;
+
+                    stopIterating = true;
+                    sigmaPass     = false;
+                }
+            }
+
+            trace << stringBuffer.str();
         }
 
-        trace << stringBuffer.str();
+        if (output_residuals && traceLevel >= 5)
+        {
+            outputResiduals(trace, leastSquareMeasSubs, suffix, i, 0, leastSquareMeasSubs.H.rows());
+        }
 
         if (stopIterating)
         {
@@ -3116,7 +3126,7 @@ bool KFState::leastSquareInitStates(
     testStatistics.sumOfSquaresLsq = statistics.sumOfSquares;
     testStatistics.averageRatioLsq = statistics.averageRatio;
 
-    if (lsqOpts.sigma_check || lsqOpts.omega_test)
+    if ((lsqOpts.sigma_check || lsqOpts.omega_test) && skipLsqCheck == false)
         trace << "\n"
               << "Sum-of-squared test statistics (least squares): "
               << testStatistics.sumOfSquaresLsq << "\n";
@@ -3163,6 +3173,11 @@ bool KFState::leastSquareInitStates(
     kfMeas.VV = kfMeas.V - kfMeas.H * dx;
     kfMeas.R(leastSquareMeasIndicies, leastSquareMeasIndicies) =
         leastSquareMeasSubs.R.topLeftCorner(lsqMeasCount, lsqMeasCount);
+    if (leastSquareMeasSubs.postfitRatios.rows() >= lsqMeasCount)
+    {
+        kfMeas.postfitRatios(leastSquareMeasIndicies) =
+            leastSquareMeasSubs.postfitRatios.head(lsqMeasCount);
+    }
 
     return true;
 }
@@ -3253,7 +3268,7 @@ void KFState::getSubState(
 
 KFState KFState::getSubState(vector<KF> types, KFMeas* meas_ptr) const
 {
-    if (std::find(types.begin(), types.end(), +KF::ALL) != types.end())
+    if (std::find(types.begin(), types.end(), KF::ALL) != types.end())
     {
         return *this;
     }
@@ -3311,7 +3326,7 @@ void KFState::outputStates(
     tracepdeex(
         1,
         trace,
-        "#\t%2s\t%22s\t%12s\t%4s\t%4s\t%7s\t%17s\t%17s\t%15s",
+        "#\t%2s\t%22s\t%12s\t%4s\t%4s\t%7s\t%17s\t%17s\t%16s",
         "It",
         "Time",
         "Type",
@@ -3356,7 +3371,7 @@ void KFState::outputStates(
 
         double _x = x(index);
 
-        if (_x == 0 || (fabs(_x) > 0.0001 && fabs(_x) < 1e8))
+        if (_x == 0 || (fabs(_x) > 0.001 && fabs(_x) < 1e8))
             snprintf(xStr, sizeof(xStr), "%17.7f", _x);
         else
             snprintf(xStr, sizeof(xStr), "%17.3e", _x);
@@ -3373,17 +3388,17 @@ void KFState::outputStates(
             _dx = dx(index);
 
         if (noAdjust)
-            snprintf(dxStr, sizeof(dxStr), "%15.0s", "");
-        else if (_dx == 0 || (fabs(_dx) > 0.0001 && fabs(_dx) < 1e5))
-            snprintf(dxStr, sizeof(dxStr), "%15.8f", _dx);
+            snprintf(dxStr, sizeof(dxStr), "%16.0s", "");
+        else if (_dx == 0 || (fabs(_dx) > 0.0001 && fabs(_dx) < 1e6))
+            snprintf(dxStr, sizeof(dxStr), "%16.8f", _dx);
         else
-            snprintf(dxStr, sizeof(dxStr), "%15.4e", _dx);
+            snprintf(dxStr, sizeof(dxStr), "%16.4e", _dx);
 
         double preRatio = 0;
         if (index < prefitRatios.rows())
             preRatio = prefitRatios(index);
 
-        if (preRatio == 0 || (fabs(preRatio) > 0.0001 && fabs(preRatio) < 1e7))
+        if (preRatio == 0 || (fabs(preRatio) > 0.001 && fabs(preRatio) < 1e7))
             snprintf(preRatioStr, sizeof(preRatioStr), "%16.7f", preRatio);
         else
             snprintf(preRatioStr, sizeof(preRatioStr), "%16.3e", preRatio);
@@ -3392,7 +3407,7 @@ void KFState::outputStates(
         if (index < postfitRatios.rows())
             postRatio = postfitRatios(index);
 
-        if (postRatio == 0 || (fabs(postRatio) > 0.0001 && fabs(postRatio) < 1e7))
+        if (postRatio == 0 || (fabs(postRatio) > 0.001 && fabs(postRatio) < 1e7))
             snprintf(postRatioStr, sizeof(postRatioStr), "%16.7f", postRatio);
         else
             snprintf(postRatioStr, sizeof(postRatioStr), "%16.3e", postRatio);
@@ -3404,15 +3419,15 @@ void KFState::outputStates(
 
         if (mu == 0)
             snprintf(muStr, sizeof(muStr), "");
-        else if (fabs(mu) > 0.0001 && fabs(mu) < 1e8)
-            snprintf(muStr, sizeof(muStr), "%17.8f", mu);
+        else if (fabs(mu) > 0.001 && fabs(mu) < 1e8)
+            snprintf(muStr, sizeof(muStr), "%17.7f", mu);
         else
-            snprintf(muStr, sizeof(muStr), "%17.4e", mu);
+            snprintf(muStr, sizeof(muStr), "%17.3e", mu);
 
         tracepdeex(
             1,
             trace,
-            "*\t%2d\t%22s\t%30s\t%17s\t%17s\t%15s",
+            "*\t%2d\t%22s\t%30s\t%17s\t%17s\t%16s",
             iteration,
             time.to_string(2).c_str(),
             ((string)key).c_str(),
@@ -3637,14 +3652,14 @@ KFState mergeFilters(const vector<KFState*>& kfStatePointerList, const vector<KF
         for (auto& [key1, index1] : kfState.kfIndexMap)
             for (auto state1 : stateList)
             {
-                if (key1.type == +state1)
+                if (key1.type == state1)
                 {
                     stateValueMap[key1] = kfState.x(index1);
 
                     for (auto& [key2, index2] : kfState.kfIndexMap)
                         for (auto state2 : stateList)
                         {
-                            if (key2.type == +state2)
+                            if (key2.type == state2)
                             {
                                 double val = kfState.P(index1, index2);
                                 if (val != 0)

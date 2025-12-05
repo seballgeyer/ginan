@@ -1,8 +1,7 @@
 // #pragma GCC optimize ("O0")
 
 #include "common/ntripBroadcast.hpp"
-#include <bsoncxx/builder/basic/document.hpp>
-#include <bsoncxx/json.hpp>
+#include <boost/json.hpp>
 #include <chrono>
 #include "common/fileLog.hpp"
 #include "common/gTime.hpp"
@@ -13,7 +12,6 @@ namespace bp = boost::asio::placeholders;
 
 using boost::posix_time::ptime;
 using boost::posix_time::time_duration;
-using bsoncxx::builder::basic::kvp;
 using std::chrono::system_clock;
 using std::chrono::time_point;
 
@@ -51,14 +49,14 @@ void NtripUploader::serverResponse(unsigned int status_code, string http_version
 
     GTime time = timeGet();
 
-    bsoncxx::builder::basic::document doc = {};
-    doc.append(kvp("label", __FUNCTION__));
-    doc.append(kvp("Stream", url.path.substr(1, url.path.length())));
-    doc.append(kvp("Time", time.to_string()));
-    doc.append(kvp("ServerStatus", (int)status_code));
-    doc.append(kvp("VersionHTTP", http_version));
+    boost::json::object doc;
+    doc["label"] = __FUNCTION__;
+    doc["Stream"] = url.path.substr(1, url.path.length());
+    doc["Time"] = time.to_string();
+    doc["ServerStatus"] = static_cast<int>(status_code);
+    doc["VersionHTTP"] = http_version;
 
-    logStream << bsoncxx::to_json(doc) << "\n";
+    logStream << boost::json::serialize(doc) << "\n";
 }
 
 void NtripUploader::writeHandler(const boost::system::error_code& err)

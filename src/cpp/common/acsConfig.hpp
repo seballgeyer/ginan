@@ -55,12 +55,23 @@ struct SsrInputOptions
 
 struct SbsInputOptions
 {
-    string host;  ///< hostname is passed as acsConfig.sisnet_inputs
-    string port;  ///< port of SISNet steam
-    string user;  ///< Username for SISnet stream access
-    string pass;  ///< Password for SISnet stream access
-    int    prn;   ///< prn of SBAS satellite
-    int    freq;  ///< freq (L1 or L5) of SBAS channel
+    string host;          ///< hostname is passed as acsConfig.sisnet_inputs
+    string port;          ///< port of SISNet steam
+    string user;          ///< Username for SISnet stream access
+    string pass;          ///< Password for SISnet stream access
+    int    prn;           ///< prn of SBAS satellite
+    int    freq;          ///< freq (L1 or L5) of SBAS channel
+    int    mt0   = 0;     ///< message that is replaced by MT0 (use 65 for SouthPAN L5)
+    int ems_year = 2059;  ///< reference year for EMS files (2059 should work between 2009 and 2158)
+    bool use_do259 = false;  ///< Use original standard DO-259, intead of DO-259A, for DFMC, Keep as
+                             ///< 'false' unless using DFMC
+    bool pvs_on_dfmc  = false;  ///< Interpret DFMC messages as PVS messages
+    bool prec_aproach = true;  ///< Limit SBAS solutions to precision approach (which limits maximum
+                               ///< SBAS correction age)
+    bool dfmc_uire = false;    ///< Ionosphere residual from IF combination (use with DFMC only)
+    int  smth_win =
+        -1;  ///< Smoothing window to be used by SBAS (100, 1 second samples are normally used)
+    double smth_out = 10;  ///< Maximum outage to reset smoothing
 };
 
 /** Input source filenames and directories
@@ -225,6 +236,10 @@ struct OutputOptions
     bool   output_pos    = false;
     string pos_directory = "<OUTPUTS_ROOT>";
     string pos_filename  = "<POS_DIRECTORY>/<RECEIVER>-<LOGTIME>.pos";
+
+    bool   output_spp    = false;
+    string spp_directory = "<OUTPUTS_ROOT>";
+    string spp_filename  = "<SPP_DIRECTORY>/<RECEIVER>-<YYYY><MM><DD>.spp";
 
     string root_stream_url = "";
 
@@ -745,6 +760,7 @@ struct SppOptions : FilterOptions
     } raim;
 
     E_IonoMode iono_mode = E_IonoMode::IONO_FREE_LINEAR_COMBO;
+    vector<E_TropModel> trop_models = {E_TropModel::STANDARD};
 };
 
 struct IonModelOptions : FilterOptions

@@ -348,6 +348,17 @@ void createTracefiles(ReceiverMap& receiverMap, Network& pppNet, Network& ionNet
                     pppNet.kfState.metaDataMap[POS_FILENAME_STR + id + metaSuff]
                 );
             }
+
+            if (acsConfig.output_spp && rts == false)
+            {
+                newTraceFile |= createNewTraceFile(
+                    id,
+                    rec.source,
+                    logptime,
+                    acsConfig.spp_filename,
+                    rec.sppOutputFile
+                );
+            }
         }
 
         if (acsConfig.output_network_trace)
@@ -928,8 +939,8 @@ void perEpochPostProcessingAndOutputs(
              .instances = acsConfig.mongoOpts.output_states,
              .queue     = acsConfig.mongoOpts.queue_outputs}
         );
-
-        kfState.outputStates(pppTrace, "/PPP" + _RTS);
+        if(acsConfig.output_network_trace)
+            kfState.outputStates(pppTrace, "/PPP" + _RTS);
     }
 
     nav.erp.filterValues = getErpFromFilter(kfState);
@@ -1030,7 +1041,8 @@ void perEpochPostProcessingAndOutputs(
             arPossible = false;
         }
 
-    if (arPossible && acsConfig.ambrOpts.mode != E_ARmode::OFF && acsConfig.ambrOpts.once_per_epoch)
+        if (arPossible && acsConfig.ambrOpts.mode != E_ARmode::OFF &&
+            acsConfig.ambrOpts.once_per_epoch)
         {
             KFState* arState_ptr;
 
@@ -1095,6 +1107,12 @@ void perEpochPostProcessingAndOutputs(
             }
         }
     }
+
+    if (acsConfig.process_spp && acsConfig.output_spp)
+        for (auto& [id, rec] : receiverMap)
+        {
+            writeSPP(rec.sppOutputFile, rec);
+        }
 
     if (1)
     {

@@ -30,16 +30,17 @@ Architecture SPP__() {}
 /** Calculate pseudorange and code bias correction
  */
 bool prange(
-    Trace&      trace,       ///< Trace file to output to
-    GObs&       obs,         ///< Observation to calculate pseudorange for
-    E_IonoMode& ionoMode,    ///< Ionospheric correction mode
-    E_FType&    ft_A,        ///< Primary frequency used for calculating pseudorange
-    E_FType&    ft_B,        ///< Secondary frequency used for calculating pseudorange
-    double&     range,       ///< Pseudorange value output
-    double&     measVar,     ///< Pseudorange variance output
-    double&     bias,        ///< Bias value output
-    double&     biasVar,     ///< Bias variance output
-    KFState*    kfState_ptr  ///< Optional kfstate to retrieve biases from
+    Trace&      trace,          ///< Trace file to output to
+    GObs&       obs,            ///< Observation to calculate pseudorange for
+    E_IonoMode& ionoMode,       ///< Ionospheric correction mode
+    E_FType&    ft_A,           ///< Primary frequency used for calculating pseudorange
+    E_FType&    ft_B,           ///< Secondary frequency used for calculating pseudorange
+    double&     range,          ///< Pseudorange value output
+    double&     measVar,        ///< Pseudorange variance output
+    double&     bias,           ///< Bias value output
+    double&     biasVar,        ///< Bias variance output
+    KFState*    kfState_ptr,    ///< Optional kfstate to retrieve biases from
+    bool        smooth = false  ///< Update smoothing filter
 )
 {
     ft_A    = NONE;
@@ -171,6 +172,43 @@ bool prange(
             biasVar = abs(SQR(c1) * varBias_A - SQR(c2) * varBias_B);  // Eugene: bias_A and
             // bias_B are expected to be fully correlated?
         }
+    }
+
+    if (acsConfig.sbsInOpts.smth_win > 0)
+    {
+        double LC   = obs.sigs[ft_A].L * lam[ft_A];
+        double varL = obs.sigs[ft_A].phasVar;
+        if (LC == 0)
+            return false;
+
+        if (ionoMode == E_IonoMode::IONO_FREE_LINEAR_COMBO)
+        {
+            double L2 = obs.sigs[ft_B].L * lam[ft_B];
+            if (L2 == 0)
+                return false;
+
+            double c1 = SQR(lam[ft_B]) / (SQR(lam[ft_B]) - SQR(lam[ft_A]));
+            double c2 = 1 - c1;
+            LC        = c1 * LC + c2 * L2;
+            varL      = c1 * c1 * varL + c2 * c2 * obs.sigs[ft_B].phasVar;
+        }
+
+        range = sbasSmoothedPsudo(
+            trace,
+            obs.time,
+            obs.Sat,
+            obs.mount,
+            range,
+            LC,
+            measVar,
+            varL,
+            measVar,
+            smooth
+        );
+        biasVar = 0;
+
+        if (measVar < 0)
+            return false;
     }
 
     return true;
@@ -494,8 +532,20 @@ E_Solution estpos(
             double     varMeas;
             double     bias;
             double     varBias;
-            bool       pass =
-                prange(trace, obs, ionoMode, ft1, ft2, range, varMeas, bias, varBias, kfState_ptr);
+            bool       smooth = (inRaim == false && iter == 0);
+            bool       pass   = prange(
+                trace,
+                obs,
+                ionoMode,
+                ft1,
+                ft2,
+                range,
+                varMeas,
+                bias,
+                varBias,
+                kfState_ptr,
+                smooth
+            );
             if (pass == false)
             {
                 obs.failurePrange = true;
@@ -589,16 +639,25 @@ E_Solution estpos(
                 varIono *= SQR(ionC);
             }
 
+            if (acsConfig.sbsInOpts.dfmc_uire)
+                varIono = SQR(0.018 + 40 / (261 + SQR(satStat.el * R2D)));
+
             tracepdeex(2, trace, ", dIono=%.5f", dIono);
 
             // Tropospheric correction
-            double dryZTD;
-            double dryMap;
-            double wetZTD;
-            double wetMap;
-            double varTrop;
-            double dTrop =
-                tropSAAS(trace, obs.time, pos, satStat.el, dryZTD, dryMap, wetZTD, wetMap, varTrop);
+            double      varTrop;
+            TropStates  tropStates;
+            TropMapping dTropDx;
+            double      dTrop = tropModel(
+                trace,
+                acsConfig.sppOpts.trop_models,
+                obs.time,
+                pos,
+                satStat,
+                tropStates,
+                dTropDx,
+                varTrop
+            );
 
             tracepdeex(2, trace, ", dTrop=%.5f", dTrop);
 
@@ -1212,6 +1271,14 @@ void spp(
     }
 
     sol.sppTime = tsync - sol.sppClk / CLIGHT;
+
+    sol.horzPL = -1;
+    sol.vertPL = -1;
+    if (sol.status == E_Solution::SINGLE)
+    {
+        Matrix3d ecefP = sol.sppState.P.block(1, 1, 3, 3);
+        estimateSBASProtLvl(sol.sppPos, ecefP, sol.horzPL, sol.vertPL);
+    }
 
     tracepdeex(
         2,

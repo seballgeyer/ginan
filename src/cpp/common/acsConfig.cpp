@@ -13,6 +13,11 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+
+#ifdef _WIN32
+#include <process.h>
+#define getpid _getpid
+#endif
 #include <string>
 #include <tuple>
 #include <yaml-cpp/yaml.h>
@@ -138,8 +143,8 @@ void conditionalPrefix(string prefix, string& path, bool condition = true)
         return;
     }
 
-    replaceString(prefix, "<CWD>", std::filesystem::current_path());
-    replaceString(path, "<CWD>", std::filesystem::current_path());
+    replaceString(prefix, "<CWD>", std::filesystem::current_path().string());
+    replaceString(path, "<CWD>", std::filesystem::current_path().string());
 
     char* home = std::getenv("HOME");
     if (prefix[0] == '~' && home)
@@ -300,6 +305,7 @@ void replaceTags(string& str)  ///< String to replace macros within
         repeat |= replaceString(str, "<LOG_DIRECTORY>", acsConfig.log_directory);
         repeat |= replaceString(str, "<GPX_DIRECTORY>", acsConfig.gpx_directory);
         repeat |= replaceString(str, "<POS_DIRECTORY>", acsConfig.pos_directory);
+        repeat |= replaceString(str, "<SPP_DIRECTORY>", acsConfig.spp_directory);
         repeat |= replaceString(str, "<NTRIP_LOG_DIRECTORY>", acsConfig.ntrip_log_directory);
         repeat |= replaceString(
             str,
@@ -324,7 +330,7 @@ void replaceTags(string& str)  ///< String to replace macros within
         repeat |= replaceString(str, "<PASS>", acsConfig.stream_pass);
         repeat |= replaceString(str, "<CONFIG>", acsConfig.config_description);
         repeat |= replaceString(str, "<DETAILS>", acsConfig.config_details);
-        repeat |= replaceString(str, "<CWD>", std::filesystem::current_path());
+        repeat |= replaceString(str, "<CWD>", std::filesystem::current_path().string());
         repeat |= replaceString(str, "<PID>", std::to_string(getpid()));
         if (home)
             repeat |= replaceString(str, "~", home);
@@ -1401,6 +1407,10 @@ void ACSConfig::info(Trace& s)  ///< Trace file to output to
     if (output_pos)
     {
         ss << "\tpos filename:                  " << pos_filename << "\n";
+    }
+    if (output_spp)
+    {
+        ss << "\tspp filename:                  " << spp_filename << "\n";
     }
     if (output_sp3)
     {
@@ -5387,6 +5397,27 @@ bool ACSConfig::parse(
             }
 
             {
+                auto spp = stringsToYamlObject(
+                    outputs,
+                    {"3! spp"},
+                    "SPP output files contain point data from SPP and SBAS solutions, including "
+                    "Protection levels"
+                );
+
+                tryGetFromYaml(output_spp, spp, {"0! output"});
+                conditionalPrefix(
+                    "<OUTPUTS_ROOT>",
+                    spp_directory,
+                    tryGetFromYaml(spp_directory, spp, {"@ directory"})
+                );
+                conditionalPrefix(
+                    "<SPP_DIRECTORY>",
+                    spp_filename,
+                    tryGetFromYaml(spp_filename, spp, {"@ filename"})
+                );
+            }
+
+            {
                 auto ntrip_log = stringsToYamlObject(outputs, {"5@ ntrip_log"});
 
                 tryGetFromYaml(output_ntrip_log, ntrip_log, {"0@ output"});
@@ -6520,7 +6551,7 @@ bool ACSConfig::parse(
                     tryGetFromYaml(
                         sbsInOpts.freq,
                         sbas_inputs,
-                        {"@ sbas_carrier_frequency"},
+                        {"@ sbas_frequency"},
                         "Carrier frequency of SBAS channel"
                     );
                     tryGetFromYaml(
@@ -6528,6 +6559,57 @@ bool ACSConfig::parse(
                         sbas_inputs,
                         {"@ sbas_time_delay"},
                         "Time delay for SBAS corrections when simulating real-time in post-process"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.mt0,
+                        sbas_inputs,
+                        {"@ sbas_message_0"},
+                        "Message type replaced by MT0 (use 65 for SouthPAN L5)"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.use_do259,
+                        sbas_inputs,
+                        {"@ use_do259"},
+                        "Use original standard DO-259, intead of DO-259A, for DFMC"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.pvs_on_dfmc,
+                        sbas_inputs,
+                        {"@ pvs_on_dfmc"},
+                        "Interpret DFMC messages as PVS messages"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.prec_aproach,
+                        sbas_inputs,
+                        {"@ prec_aproach"},
+                        "Limit SBAS solutions to precision approach (which limits maximum SBAS "
+                        "correction age)"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.dfmc_uire,
+                        sbas_inputs,
+                        {"@ iono_residual_dfmc"},
+                        "Ionosphere residual from IF combination (use with DFMC only)"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.ems_year,
+                        sbas_inputs,
+                        {"@ ems_reference_year"},
+                        "Reference year for EMS files (should be within 50 year of real value)"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.smth_win,
+                        sbas_inputs,
+                        {"@ smoothing_window"},
+                        "Smoothing window to be used by SBAS (100, 1 second samples are normally "
+                        "used)"
+                    );
+                    tryGetFromYaml(
+                        sbsInOpts.smth_out,
+                        sbas_inputs,
+                        {"@ max_smooth_outage"},
+                        "Maximum outage to reset smoothing (10 seconds or 3 x obs_rate is "
+                        "recommended)"
                     );
                 }
             }
@@ -7908,6 +7990,12 @@ bool ACSConfig::parse(
                     "Reset SPP state to zero to avoid potential for lock-in of bad states"
                 );
                 tryGetEnumOpt(sppOpts.iono_mode, spp, {"@ iono_mode"});
+                tryGetEnumVec(
+                    sppOpts.trop_models,
+                    spp,
+                    {"@ trop_models"},
+                    "List of models to use for troposphere"
+                );
 
                 auto outlier_screening = stringsToYamlObject(
                     spp,
@@ -8483,6 +8571,8 @@ bool ACSConfig::parse(
         replaceTags(gpx_filename);
         replaceTags(pos_directory);
         replaceTags(pos_filename);
+        replaceTags(spp_directory);
+        replaceTags(spp_filename);
         replaceTags(log_directory);
         replaceTags(log_filename);
         replaceTags(cost_directory);

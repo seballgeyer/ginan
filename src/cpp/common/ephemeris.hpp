@@ -489,3 +489,7 @@ bool satPosSSR(Trace& trace, GTime time, GTime teph, SatPos& satPos, Navigation&
 bool satClkSSR(Trace& trace, GTime time, GTime teph, SatPos& satPos, Navigation& nav);
 
 double relativity1(Vector3d& rSat, Vector3d& satVel);
+
+bool satPosSBAS(Trace& trace, GTime time, GTime teph, SatPos& satPos, Navigation& nav);
+
+bool satClkSBAS(Trace& trace, GTime time, GTime teph, SatPos& satPos, Navigation& nav);

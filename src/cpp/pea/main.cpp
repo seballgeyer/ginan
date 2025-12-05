@@ -11,7 +11,6 @@
 #include <memory>
 #include <signal.h>
 #include <string>
-#include <sys/time.h>
 #include <thread>
 #include "architectureDocs.hpp"
 #include "common/algebraTrace.hpp"
@@ -531,9 +530,10 @@ void mainPostProcessing(Network& pppNet, Network& ionNet, ReceiverMap& receiverM
     }
 
     outputPredictedStates(pppTrace, pppNet.kfState);
-
+    
     if (acsConfig.process_rts)
     {
+
         while (spitQueueRunning)
         {
             sleep_for(std::chrono::milliseconds(acsConfig.sleep_milliseconds));

@@ -24,18 +24,25 @@ namespace LapackWrapper
 	void dsytrf_(const char* uplo, const int* n, double* a, const int* lda, int* ipiv, double* work, const int* lwork, int* info);
 	void dsytrs_(const char* uplo, const int* n, const int* nrhs, const double* a, const int* lda, const int* ipiv, double* b, const int* ldb, int* info);
 	void dsytri_(const char* uplo, const int* n, double* a, const int* lda, const int* ipiv, double* work, int* info);
-	void dgetri_(const int* n, double* a, const int* lda, const int* ipiv, double* work, const int* lwork, int* info);		// BLAS functions - don't redeclare if Eigen already declared them
-		#ifndef EIGEN_BLAS_H
-		void dgemm_(const char* transa, const char* transb, const int* m, const int* n, const int* k,
-		            const double* alpha, const double* a, const int* lda, const double* b, const int* ldb,
-		            const double* beta, double* c, const int* ldc);
-		void dgemv_(const char* trans, const int* m, const int* n, const double* alpha,
-		            const double* a, const int* lda, const double* x, const int* incx,
-		            const double* beta, double* y, const int* incy);
-		void dcopy_(const int* n, const double* x, const int* incx, double* y, const int* incy);
-		void daxpy_(const int* n, const double* alpha, const double* x, const int* incx, double* y, const int* incy);
-		#endif
+	void dgetri_(const int* n, double* a, const int* lda, const int* ipiv, double* work, const int* lwork, int* info);
 	}
+
+	// BLAS function declarations - handle different environments
+	// Eigen/OpenBLAS declares these with int return, standard BLAS uses void
+	#if !defined(EIGEN_USE_BLAS) && !defined(EIGEN_BLAS_H)
+		// Standard BLAS declarations (void return, Fortran style)
+		extern "C" {
+			void dgemm_(const char* transa, const char* transb, const int* m, const int* n, const int* k,
+			            const double* alpha, const double* a, const int* lda, const double* b, const int* ldb,
+			            const double* beta, double* c, const int* ldc);
+			void dgemv_(const char* trans, const int* m, const int* n, const double* alpha,
+			            const double* a, const int* lda, const double* x, const int* incx,
+			            const double* beta, double* y, const int* incy);
+			void dcopy_(const int* n, const double* x, const int* incx, double* y, const int* incy);
+			void daxpy_(const int* n, const double* alpha, const double* x, const int* incx, double* y, const int* incy);
+		}
+	#endif
+	// Note: When EIGEN_USE_BLAS/EIGEN_BLAS_H is defined, these are already declared by Eigen headers
 
 	// Cholesky factorization (positive definite)
 	inline int dpotrf(Layout layout, char uplo, int n, double* a, int lda)
@@ -306,4 +313,5 @@ inline void daxpy(int n, double alpha, const double* x, int incx, double* y, int
 {
     daxpy_(&n, &alpha, const_cast<double*>(x), &incx, y, &incy);
 }
-}
+
+} // namespace LapackWrapper

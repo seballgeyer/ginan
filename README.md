@@ -165,17 +165,18 @@ sudo apt install fuse libfuse2
 
 - **YAML** ≥ 0.6  
 
-- **Boost** ≥ 1.73 (≥ 1.74 for GCC 11+)  
-
-- **Mongo C Driver** ≥ 1.17.1  
-
-- **Mongo C++ Driver** ≥ 3.6.0 (= 3.7.0 for GCC 11+)  
+- **Boost** ≥ 1.75 
+ 
 
 - **Eigen3** ≥ 3.4  
 
 - **OpenBLAS** (provides BLAS and LAPACK)  
 
 **Optional Dependencies:**
+
+- **Mongo C Driver** ≥ 1.17.1  
+
+- **Mongo C++ Driver** ≥ 3.6.0 (= 3.7.0 for GCC 11+) 
 
 - **MongoDB** (for database features)  
 

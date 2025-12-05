@@ -1,7 +1,7 @@
 // #pragma GCC optimize ("O0")
 
 #include "common/ubxDecoder.hpp"
-#include <bsoncxx/json.hpp>
+#include <boost/json.hpp>
 #include "architectureDocs.hpp"
 #include "common/constants.hpp"
 #include "common/enums.h"
@@ -242,11 +242,11 @@ void UbxDecoder::decodeEphFrames(SatSys Sat)
         eph.type                               = E_NavMsgType::LNAV;
         nav.ephMap[eph.Sat][eph.type][eph.toe] = eph;
 
-        bsoncxx::builder::basic::document doc = {};
+        boost::json::object doc = {};
 
         traceBrdcEphBody(doc, eph);
 
-        std::cout << bsoncxx::to_json(doc) << "\n";
+        std::cout << boost::json::serialize(doc) << "\n";
         //
         // 		if (acsConfig.output_decoded_rtcm_json)
         // 			traceBrdcEph(RtcmMessageType::GPS_EPHEMERIS, eph);

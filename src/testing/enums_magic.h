@@ -406,13 +406,6 @@ enum class E_NoiseModel : int
     ELEVATION_DEPENDENT
 };
 
-enum class E_LogLevel : int
-{
-    DEBUG,
-    WARN,
-    ERROR
-};
-
 enum class E_IonoModel : int
 {
     NONE,

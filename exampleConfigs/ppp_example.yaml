@@ -131,7 +131,7 @@ processing_options:
   epoch_control:
     # start_epoch: 2019-07-18 00:00:00
     # end_epoch: 2019-07-18 23:59:30
-    max_epochs: 2870
+    #max_epochs: 30
     epoch_interval: 30 # seconds
     wait_next_epoch: 3600 # seconds (make large for post-processing)
 
@@ -294,7 +294,7 @@ estimation_parameters:
             process_noise: [0.001]
 
 mongo: # Mongo is a database used to store results and intermediate values for later analysis and inter-process communication
-  enable: primary # Enable and connect to mongo database {none,primary,secondary,both}
+  enable: none # Enable and connect to mongo database {none,primary,secondary,both}
   primary_uri: mongodb://localhost:27017 # Location and port of the mongo database to connect to
   primary_database: <CONFIG>
   primary_suffix: "" # Suffix to append to database elements to make distinctions between runs for comparison

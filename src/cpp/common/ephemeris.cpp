@@ -118,7 +118,8 @@ bool satclk(
 
         switch (ephType)
         {
-            case E_Source::SSR:  // fallthrough
+            case E_Source::SSR:   // fallthrough
+            case E_Source::SBAS:  // fallthrough
             case E_Source::BROADCAST:
                 returnValue = satClkBroadcast(trace, time, teph, satPos, nav);
                 break;
@@ -199,6 +200,9 @@ bool satpos(
                 case E_Source::BROADCAST:
                     returnValue = satPosBroadcast(trace, time, teph, satPos, nav);
                     break;
+                case E_Source::SBAS:
+                    returnValue = satPosSBAS(trace, time, teph, satPos, nav);
+                    break;
                 case E_Source::SSR:
                     returnValue = satPosSSR(trace, time, teph, satPos, nav);
                     break;
@@ -225,6 +229,9 @@ bool satpos(
         switch (ephType)
         {
             case E_Source::BROADCAST:
+                satPos.rSatCom = satPos.rSatApc;
+                break;
+            case E_Source::SBAS:
                 satPos.rSatCom = satPos.rSatApc;
                 break;
             case E_Source::SSR:
@@ -285,6 +292,8 @@ bool satpos(
     if (satPos.posSource == E_Source::REMOTE && offsetType == E_OffsetType::APC)
         antennaScalar = +1;
     if (satPos.posSource == E_Source::BROADCAST && offsetType == E_OffsetType::COM)
+        antennaScalar = -1;
+    if (satPos.posSource == E_Source::SBAS && offsetType == E_OffsetType::COM)
         antennaScalar = -1;
 
     // satellite antenna offset correction

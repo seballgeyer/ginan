@@ -29,9 +29,6 @@
 #include "pea/inputsOutputs.hpp"
 
 using boost::algorithm::to_lower;
-using bsoncxx::builder::stream::close_array;
-using bsoncxx::builder::stream::document;
-using bsoncxx::builder::stream::open_array;
 using std::deque;
 using std::map;
 
@@ -406,7 +403,7 @@ void OrbitIntegrator::computeAcceleration(
         double   E     = 1367;
         double   cBall = 0.8 * E / CLIGHT;
         double   alpha = 0.3;
-        double   Ae    = M_PI * SQR(RE_WGS84);
+        double   Ae    = PI * SQR(RE_WGS84);
         Vector3d rSun  = planetsPosMap[E_ThirdBody::SUN];
 
         double factor = Ae / rSat.squaredNorm();
@@ -1421,7 +1418,7 @@ void addEmpStates(const EmpKalmans& satOpts, KFState& kfState, const string& id)
 
 void outputOrbitConfig(KFState& kfState, bool isSmoothed)
 {
-    document satellites;
+    boost::json::object satellites;
 
     for (auto& [key, index] : kfState.kfIndexMap)
     {
@@ -1430,7 +1427,7 @@ void outputOrbitConfig(KFState& kfState, bool isSmoothed)
             continue;
         }
 
-        document satellite;
+        boost::json::object satellite;
 
         for (KF type : {
                  KF::ORBIT,
@@ -1475,47 +1472,43 @@ void outputOrbitConfig(KFState& kfState, bool isSmoothed)
                 continue;
             }
 
-            document state;
+            boost::json::object state;
+            boost::json::array apriori_arr;
+            for (auto& val : aprioriVec)
+                apriori_arr.push_back(val);
+            state["apriori_val"] = apriori_arr;
 
-            {
-                auto arr = state << "apriori_val" << open_array;
-                for (auto& val : aprioriVec)
-                    arr << val;
-                arr << close_array;
-            }
-            {
-                auto arr = state << "sigma" << open_array;
-                for (auto& val : sigmaVec)
-                    arr << val;
-                arr << close_array;
-            }
-            {
-                auto arr = state << "estimated" << open_array;
-                for (auto& val : estimatedVec)
-                    arr << val;
-                arr << close_array;
-            }
+            boost::json::array sigma_arr;
+            for (auto& val : sigmaVec)
+                sigma_arr.push_back(val);
+            state["sigma"] = sigma_arr;
+
+            boost::json::array estimated_arr;
+            for (auto& val : estimatedVec)
+                estimated_arr.push_back(val);
+            state["estimated"] = estimated_arr;
 
             string typeStr = enum_to_string(type);
             to_lower(typeStr);
 
-            satellite << typeStr << state;
+            satellite[typeStr] = state;
         }
 
-        satellites << key.Sat.id() << satellite;
+        satellites[key.Sat.id()] = satellite;
     }
 
-    document epoch_control;
-    epoch_control << "start_epoch" << kfState.time.to_string();
-    document processing_options;
-    processing_options << "epoch_control" << epoch_control;
+    boost::json::object epoch_control;
+    epoch_control["start_epoch"] = kfState.time.to_string();
+    
+    boost::json::object processing_options;
+    processing_options["epoch_control"] = epoch_control;
 
-    document estimation_parameters;
-    estimation_parameters << "satellites" << satellites;
+    boost::json::object estimation_parameters;
+    estimation_parameters["satellites"] = satellites;
 
-    document json;
-    json << "processing_options" << processing_options;
-    json << "estimation_parameters" << estimation_parameters;
+    boost::json::object json;
+    json["processing_options"] = processing_options;
+    json["estimation_parameters"] = estimation_parameters;
 
     string filename = acsConfig.orbit_ics_filename;
 
@@ -1542,5 +1535,5 @@ void outputOrbitConfig(KFState& kfState, bool isSmoothed)
         return;
     }
 
-    output << bsoncxx::to_json(json) << "\n";
+    output << boost::json::serialize(json) << "\n";
 }

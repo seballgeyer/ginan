@@ -1,6 +1,18 @@
 #pragma once
 
+// Windows defines OUT and IN as empty macros in some headers
+#ifdef _WIN32
+#ifdef OUT
+#undef OUT
+#endif
+#ifdef IN
+#undef IN
+#endif
+#endif
+
+#include <map>
 #include <memory>
+#include <vector>
 #include "common/eigenIncluder.hpp"
 #include "common/enums.h"
 #include "common/erp.hpp"
@@ -220,18 +232,18 @@ struct Typer
 /** Use only a subset of a vector that can be cast to a desired type
  * \private
  */
-template <typename OUT, typename ENTRY>
-Typer<IteratorType, OUT, void, vector<ENTRY>> only(vector<ENTRY>& in)
+template <typename OUT_, typename ENTRY>
+Typer<IteratorType, OUT_, void, std::vector<ENTRY> > only(std::vector<ENTRY>& in)
 {
-    return Typer<IteratorType, OUT, void, vector<ENTRY>>(in);
+    return Typer<IteratorType, OUT_, void, std::vector<ENTRY> >(in);
 }
 
 /** Use only a subset of a map that can be cast to a desired type
  */
-template <typename OUT, typename KEYTYPE, typename VALUE>
-Typer<MapIteratorType, OUT, KEYTYPE, multimap<KEYTYPE, VALUE>> only(multimap<KEYTYPE, VALUE>& in)
+template <typename OUT_, typename KEYTYPE, typename VALUE>
+Typer<MapIteratorType, OUT_, KEYTYPE, std::multimap<KEYTYPE, VALUE> > only(std::multimap<KEYTYPE, VALUE>& in)
 {
-    return Typer<MapIteratorType, OUT, KEYTYPE, multimap<KEYTYPE, VALUE>>(in);
+    return Typer<MapIteratorType, OUT_, KEYTYPE, std::multimap<KEYTYPE, VALUE> >(in);
 }
 
 extern int   epoch;

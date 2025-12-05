@@ -58,8 +58,6 @@ E_SerialObject RtsFileReader::readNextObject(FilterData& filterData)
 {
     E_SerialObject type = getFilterTypeFromFile(currentPosition, inputFile);
 
-    BOOST_LOG_TRIVIAL(debug) << "Found " << enum_to_string(type) << "\n";
-
     if (type == E_SerialObject::NONE)
     {
         return type;
@@ -123,24 +121,41 @@ void RtsFileReader::resetEpochFlags()
 /** Process metadata object */
 bool RtsFileReader::processMetadata(FilterData& filterData)
 {
-    filterData.skipNextRts = (filterData.smoothedKF.metaDataMap["SKIP_PREV_RTS"] == "TRUE");
-
+    // Read metadata from file into the epoch-specific map.
     bool success = getFilterObjectFromFile(
         E_SerialObject::METADATA,
         filterData.metaDataMap,
         currentPosition,
         inputFile
     );
-    if (success)
+
+    if (!success)
     {
-        hasMetadata = true;
+        BOOST_LOG_TRIVIAL(debug) << "Failed to read metadata" << "\n";
+        return false;
+    }
+
+    // Mark presence
+    hasMetadata = true;
+
+    // Keep the smoothedKF's metadata in sync so later code that checks
+    // smoothedKF.metaDataMap (e.g. for TRACE filename) works correctly.
+    // Previously this map was never updated after the first epoch, causing
+    // empty lookups and early returns in output routines.
+    filterData.smoothedKF.metaDataMap = filterData.metaDataMap;
+
+    // Only now evaluate skip flag using freshly loaded metadata.
+    auto itSkip = filterData.smoothedKF.metaDataMap.find("SKIP_PREV_RTS");
+    if (itSkip != filterData.smoothedKF.metaDataMap.end())
+    {
+        filterData.skipNextRts = (itSkip->second == "TRUE");
     }
     else
     {
-        BOOST_LOG_TRIVIAL(debug) << "Failed to read metadata" << "\n";
+        filterData.skipNextRts = false;
     }
 
-    return success;
+    return true;
 }
 
 /** Process measurement object */
@@ -372,7 +387,7 @@ void RtsProcessor::handleOutput(FilterData& filterData)
             );
         }
     }
-    else
+    else  // Eugene: not used?
     {
         // Handle non-write case if needed
         if (filterData.smoothedKF.metaDataMap.find(TRACE_FILENAME_STR + SMOOTHED_SUFFIX) !=
@@ -627,6 +642,7 @@ bool FilterData::performRtsComputation(KFState& kfState, const RtsConfiguration&
         );
 
         // Use CBLAS for matrix-matrix multiplication: deltaP_ = temp * FP_
+        // NOTE: deltaP_ is a block reference, so leading dimension is deltaP.rows()
         LapackWrapper::dgemm(
             LapackWrapper::COL_MAJOR,
             LapackWrapper::CblasNoTrans,
@@ -641,7 +657,7 @@ bool FilterData::performRtsComputation(KFState& kfState, const RtsConfiguration&
             n,
             0.0,
             deltaP_.data(),
-            neqs
+            deltaP.rows()  // Parent matrix row count, not block size
         );
     }
 
@@ -797,18 +813,12 @@ void RtsOutputProcessor::processSmoothedFilterOutput(
 /** Output residuals to file */
 void RtsOutputProcessor::outputResidualsToFile(FilterData& filterData)
 {
-    if (filterData.metaDataMap.find(TRACE_FILENAME_STR + SMOOTHED_SUFFIX) ==
-        filterData.metaDataMap.end())
-    {
-        return;
-    }
+    string        filename = filterData.metaDataMap[TRACE_FILENAME_STR + SMOOTHED_SUFFIX];
+    std::ofstream trace(filename, std::ofstream::out | std::ofstream::app);
 
-    string        filename = filterData.metaDataMap.at(TRACE_FILENAME_STR + SMOOTHED_SUFFIX);
-    std::ofstream ofs(filename, std::ofstream::out | std::ofstream::app);
-
-    if (ofs && config.output_residuals)
+    if (trace && config.output_residuals)
     {
-        outputResiduals(ofs, filterData.measurements, "/RTS");
+        outputResiduals(trace, filterData.measurements, "/RTS");
     }
 }
 
@@ -832,19 +842,11 @@ void RtsOutputProcessor::performEpochPostProcessing(
     ReceiverMap& receiverMap
 )
 {
-    if (filterData.smoothedKF.metaDataMap.find(TRACE_FILENAME_STR + SMOOTHED_SUFFIX) ==
-        filterData.smoothedKF.metaDataMap.end())
-    {
-        return;
-    }
+    string filename = filterData.smoothedKF.metaDataMap[TRACE_FILENAME_STR + SMOOTHED_SUFFIX];
+    std::ofstream trace(filename, std::ofstream::out | std::ofstream::app);
 
-    GTime         dummyTime;
-    Network       dummyNet;
-    std::ofstream trace(
-        filterData.smoothedKF.metaDataMap.at(TRACE_FILENAME_STR + SMOOTHED_SUFFIX),
-        std::ofstream::out | std::ofstream::app
-    );
-
+    GTime   dummyTime;
+    Network dummyNet;
     perEpochPostProcessingAndOutputs(
         trace,
         dummyTime,
@@ -889,14 +891,16 @@ void rtsOutput(
     FilterData          filterData;
     filterData.metaDataMap = kfState.metaDataMap;
 
+    int objectCount = 0;
     while (true)
     {
         E_SerialObject type = outputReader.readNextObject(filterData);
-
         if (type == E_SerialObject::NONE)
         {
             break;
         }
+
+        objectCount++;
 
         // Process different object types using the processor
         switch (type)
@@ -978,7 +982,7 @@ void rtsSmoothing(
     RtsProcessor  processor(outputFile, write, rtsConfig);
     FilterData    filterData;
 
-    if (write)
+    if (write)  // Eugene: not used?
     {
         std::ofstream ofs(outputFile, std::ofstream::out | std::ofstream::trunc);
     }

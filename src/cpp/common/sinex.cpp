@@ -7,7 +7,9 @@
 #include <map>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32
 #include <sys/utsname.h>
+#endif
 #include "architectureDocs.hpp"
 #include "common/algebra.hpp"
 #include "common/eigenIncluder.hpp"
@@ -3561,8 +3563,7 @@ int sinexCheckAddGaReference(string solType, string peaVer, bool isTrop)
     }
 
     // step 3: put in the Geoscience reference
-    struct utsname buf;
-    char           line[81];
+    char line[81];
 
     snprintf(line, sizeof(line), " %-18s %s", "DESCRIPTION", "Geoscience Australia");
     theSinex.refstrings.push_back(line);
@@ -3573,6 +3574,8 @@ int sinexCheckAddGaReference(string solType, string peaVer, bool isTrop)
     snprintf(line, sizeof(line), " %-18s %s", "SOFTWARE", ("Ginan PEA Version " + peaVer).c_str());
     theSinex.refstrings.push_back(line);
 
+#ifndef _WIN32
+    struct utsname buf;
     int result = uname(&buf);
 
     if (result == 0)
@@ -3587,6 +3590,11 @@ int sinexCheckAddGaReference(string solType, string peaVer, bool isTrop)
 
         theSinex.refstrings.push_back(line);
     }
+#else
+    // Windows - provide basic hardware info
+    snprintf(line, sizeof(line), " %-18s %s", "HARDWARE", "Windows");
+    theSinex.refstrings.push_back(line);
+#endif
 
     snprintf(line, sizeof(line), " %-18s %s", "INPUT", "RINEX");
     theSinex.refstrings.push_back(line);

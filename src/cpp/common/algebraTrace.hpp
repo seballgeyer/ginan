@@ -145,7 +145,7 @@ void spitFilterToFile(
     {
         std::fstream fileStream(
             filename,
-            std::ifstream::binary | std::ifstream::out | std::ifstream::app
+            std::ios::binary | std::ios::out | std::ios::app
         );
 
         if (!fileStream)
@@ -159,6 +159,8 @@ void spitFilterToFile(
 
         binary_oarchive serial(fileStream, 1);  // no header
 
+        // On Windows/MinGW, tellp() returns 0 in append mode, so seek to end first
+        fileStream.seekp(0, std::ios::end);
         long int pos = fileStream.tellp();
 
         int type_int = static_cast<int>(type);
@@ -186,7 +188,7 @@ bool getFilterObjectFromFile(
     string    filename            ///< The path to the archive file to read from
 )
 {
-    std::fstream fileStream(filename, std::ifstream::binary | std::ifstream::in);
+    std::fstream fileStream(filename, std::ios::binary | std::ios::in);
 
     if (!fileStream)
     {
@@ -208,11 +210,18 @@ bool getFilterObjectFromFile(
         fileStream.seekg(startPos - sizeof(itemDelta), fileStream.beg);
     }
 
-    long int currentPosition = fileStream.tellg();
+    std::streamoff currentPosition = fileStream.tellg();
+
+    if (currentPosition < 0)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Failed to get position in file " << filename 
+                                 << " (tellg() returned " << currentPosition << ")";
+        return false;
+    }
 
     serial & itemDelta;
 
-    long int itemPosition = currentPosition - itemDelta;
+    std::streamoff itemPosition = currentPosition - itemDelta;
 
     fileStream.seekg(itemPosition, fileStream.beg);
 

@@ -45,9 +45,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-windows-cross-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-windows-cross-v2-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-windows-cross-
+          vcpkg-windows-cross-v2-
     
     - name: Setup vcpkg
       run: |

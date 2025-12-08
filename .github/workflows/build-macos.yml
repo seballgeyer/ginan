@@ -32,9 +32,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-macos-arm64-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-macos-arm64-v2-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-macos-arm64-
+          vcpkg-macos-arm64-v2-
     
     - name: Setup vcpkg
       run: |
@@ -95,9 +95,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-macos-x64-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-macos-x64-v2-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-macos-x64-
+          vcpkg-macos-x64-v2-
     
     - name: Setup vcpkg
       run: |

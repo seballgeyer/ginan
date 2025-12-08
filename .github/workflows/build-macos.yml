@@ -63,7 +63,6 @@ jobs:
       run: |
         mkdir -p artifacts/macos-arm64
         cp -r bin/* artifacts/macos-arm64/ || true
-        cp -r lib/* artifacts/macos-arm64/ || true
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -127,7 +126,6 @@ jobs:
       run: |
         mkdir -p artifacts/macos-x64
         cp -r bin/* artifacts/macos-x64/ || true
-        cp -r lib/* artifacts/macos-x64/ || true
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

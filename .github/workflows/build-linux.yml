@@ -73,7 +73,6 @@ jobs:
       run: |
         mkdir -p artifacts/linux
         cp -r bin/* artifacts/linux/ || true
-        cp -r lib/* artifacts/linux/ || true
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

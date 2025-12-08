@@ -81,7 +81,6 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force -Path "artifacts/windows-native"
         if (Test-Path "bin") { Copy-Item -Recurse -Force bin/* artifacts/windows-native/ }
-        if (Test-Path "lib") { Copy-Item -Recurse -Force lib/* artifacts/windows-native/ }
         Get-ChildItem -Recurse -Filter "*.exe" | Copy-Item -Destination artifacts/windows-native/
     
     - name: Upload artifacts

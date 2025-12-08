@@ -76,7 +76,6 @@ jobs:
       run: |
         mkdir -p artifacts/windows
         cp -r bin/* artifacts/windows/ || true
-        cp -r lib/* artifacts/windows/ || true
         # Find and copy any .exe files
         find . -name "*.exe" -exec cp {} artifacts/windows/ \; || true
     

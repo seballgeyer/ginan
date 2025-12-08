@@ -23,6 +23,7 @@
       "name": "openblas",
       "features": ["threads", "dynamic-arch"]
     },
+    "lapack",
     "yaml-cpp",
     "openssl",
     "zstd",

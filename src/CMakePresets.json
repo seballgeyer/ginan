@@ -97,6 +97,24 @@
       }
     },
     {
+      "name": "mingw-native-base",
+      "hidden": true,
+      "inherits": "vcpkg-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchain/mingw64.cmake",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/../vcpkg_installed",
+        "ENABLE_MONGODB": "OFF"
+      }
+    },
+    {
       "name": "release",
       "displayName": "Release",
       "description": "Release build using vcpkg",
@@ -197,6 +215,26 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
+    },
+    {
+      "name": "windows-mingw-release",
+      "displayName": "Windows MinGW Native Release",
+      "description": "Native Windows build using MinGW-w64",
+      "binaryDir": "${sourceDir}/build/windows-mingw-Release",
+      "inherits": ["mingw-native-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "windows-mingw-debug",
+      "displayName": "Windows MinGW Native Debug",
+      "description": "Native Windows Debug build using MinGW-w64",
+      "binaryDir": "${sourceDir}/build/windows-mingw-Debug",
+      "inherits": ["mingw-native-base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
     }
   ],
   "buildPresets": [
@@ -249,6 +287,16 @@
       "name": "windows-cross-debug",
       "configurePreset": "windows-cross-debug",
       "displayName": "Windows Cross-compile Debug Build"
+    },
+    {
+      "name": "windows-mingw-release",
+      "configurePreset": "windows-mingw-release",
+      "displayName": "Windows MinGW Native Release Build"
+    },
+    {
+      "name": "windows-mingw-debug",
+      "configurePreset": "windows-mingw-debug",
+      "displayName": "Windows MinGW Native Debug Build"
     }
   ]
 }

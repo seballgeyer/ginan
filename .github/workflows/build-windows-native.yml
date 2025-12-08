@@ -68,13 +68,13 @@ jobs:
       working-directory: src
       run: |
         export VCPKG_ROOT="${{ github.workspace }}/vcpkg"
-        cmake --preset windows-cross-release
+        cmake --preset windows-mingw-release
     
     - name: Build
       shell: msys2 {0}
       working-directory: src
       run: |
-        cmake --build build/windows-cross-Release --parallel $(nproc)
+        cmake --build build/windows-mingw-Release --parallel $(nproc)
     
     - name: Collect artifacts
       shell: pwsh

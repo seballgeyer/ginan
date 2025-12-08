@@ -60,7 +60,7 @@ jobs:
     - name: Install vcpkg dependencies
       run: |
         cd ${{ github.workspace }}
-        ./vcpkg/vcpkg install --triplet x64-mingw-static --x-install-root=./vcpkg_installed
+        ./vcpkg/vcpkg install --triplet x64-mingw-static --x-install-root=./vcpkg_installed --allow-unsupported
     
     - name: Configure CMake
       working-directory: src

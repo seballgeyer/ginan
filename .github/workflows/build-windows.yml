@@ -1,0 +1,77 @@
+name: Build Windows (Cross-Compile)
+
+on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
+  workflow_dispatch:
+
+jobs:
+  build-windows-cross:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install system dependencies and MinGW-w64
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          curl \
+          zip \
+          unzip \
+          tar \
+          pkg-config \
+          git \
+          mingw-w64 \
+          g++-mingw-w64-x86-64 \
+          gcc-mingw-w64-x86-64
+    
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+        echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+    
+    - name: Cache vcpkg packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          vcpkg_installed
+          vcpkg/downloads
+          vcpkg/packages
+        key: vcpkg-windows-cross-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-windows-cross-
+    
+    - name: Configure CMake
+      working-directory: src
+      run: |
+        cmake --preset windows-cross-release
+    
+    - name: Build
+      working-directory: src
+      run: |
+        cmake --build build/windows-cross-Release --parallel $(nproc)
+    
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts/windows
+        cp -r bin/* artifacts/windows/ || true
+        cp -r lib/* artifacts/windows/ || true
+        # Find and copy any .exe files
+        find . -name "*.exe" -exec cp {} artifacts/windows/ \; || true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-windows-x64
+        path: artifacts/windows/
+        retention-days: 30

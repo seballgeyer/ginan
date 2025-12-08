@@ -1,0 +1,115 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
+  workflow_dispatch:
+
+jobs:
+  build-macos-arm64:
+    runs-on: macos-14  # macOS ARM64 runner
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install system dependencies
+      run: |
+        brew install cmake ninja pkg-config
+    
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+        echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+    
+    - name: Cache vcpkg packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          vcpkg_installed
+          vcpkg/downloads
+          vcpkg/packages
+        key: vcpkg-macos-arm64-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-macos-arm64-
+    
+    - name: Configure CMake
+      working-directory: src
+      run: |
+        cmake --preset macos-arm64-release
+    
+    - name: Build
+      working-directory: src
+      run: |
+        cmake --build build/mac-arm64-Release --parallel $(sysctl -n hw.ncpu)
+    
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts/macos-arm64
+        cp -r bin/* artifacts/macos-arm64/ || true
+        cp -r lib/* artifacts/macos-arm64/ || true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-macos-arm64
+        path: artifacts/macos-arm64/
+        retention-days: 30
+
+  build-macos-x64:
+    runs-on: macos-13  # macOS x86_64 runner
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install system dependencies
+      run: |
+        brew install cmake ninja pkg-config
+    
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+        echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+    
+    - name: Cache vcpkg packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          vcpkg_installed
+          vcpkg/downloads
+          vcpkg/packages
+        key: vcpkg-macos-x64-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-macos-x64-
+    
+    - name: Configure CMake
+      working-directory: src
+      run: |
+        cmake --preset macos-x64-release
+    
+    - name: Build
+      working-directory: src
+      run: |
+        cmake --build build/mac-x64-Release --parallel $(sysctl -n hw.ncpu)
+    
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts/macos-x64
+        cp -r bin/* artifacts/macos-x64/ || true
+        cp -r lib/* artifacts/macos-x64/ || true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-macos-x64
+        path: artifacts/macos-x64/
+        retention-days: 30

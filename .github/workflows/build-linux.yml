@@ -1,0 +1,72 @@
+name: Build Linux
+
+on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          curl \
+          zip \
+          unzip \
+          tar \
+          pkg-config \
+          git
+    
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+        echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+    
+    - name: Cache vcpkg packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          vcpkg_installed
+          vcpkg/downloads
+          vcpkg/packages
+        key: vcpkg-linux-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-linux-
+    
+    - name: Configure CMake
+      working-directory: src
+      run: |
+        cmake --preset release
+    
+    - name: Build
+      working-directory: src
+      run: |
+        cmake --build build/linux-Release --parallel $(nproc)
+    
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts/linux
+        cp -r bin/* artifacts/linux/ || true
+        cp -r lib/* artifacts/linux/ || true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-linux-x64
+        path: artifacts/linux/
+        retention-days: 30

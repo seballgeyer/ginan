@@ -56,7 +56,8 @@ jobs:
     
     - name: Install vcpkg dependencies
       run: |
-        ${{ github.workspace }}/vcpkg/vcpkg install --triplet x64-linux
+        cd ${{ github.workspace }}
+        ./vcpkg/vcpkg install --triplet x64-linux --x-install-root=./vcpkg_installed
     
     - name: Configure CMake
       working-directory: src

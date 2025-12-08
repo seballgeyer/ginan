@@ -31,22 +31,28 @@ jobs:
           pkg-config \
           git
     
-    - name: Setup vcpkg
+    - name: Setup vcpkg binary cache
       run: |
-        git clone https://github.com/Microsoft/vcpkg.git
-        ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
-        echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+        mkdir -p ${{ github.workspace }}/.vcpkg-cache
+        echo "VCPKG_BINARY_SOURCES=clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite" >> $GITHUB_ENV
     
-    - name: Cache vcpkg packages
+    - name: Cache vcpkg
       uses: actions/cache@v4
       with:
         path: |
-          vcpkg_installed
-          vcpkg/downloads
-          vcpkg/packages
+          .vcpkg-cache
+          vcpkg
         key: vcpkg-linux-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
           vcpkg-linux-
+    
+    - name: Setup vcpkg
+      run: |
+        if [ ! -d "vcpkg" ]; then
+          git clone https://github.com/Microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+        fi
+        echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
     
     - name: Configure CMake
       working-directory: src

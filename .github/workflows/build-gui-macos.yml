@@ -1,0 +1,105 @@
+name: Build GUI macOS
+
+on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
+  workflow_dispatch:
+
+jobs:
+  build-gui-macos-arm64:
+    runs-on: macos-14
+    needs: build-macos-arm64
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Download macOS ARM64 binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: ginan-macos-arm64
+        path: bin/
+    
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r scripts/GinanUI/requirements.txt
+        pip install pyinstaller
+    
+    - name: Make binaries executable
+      run: chmod +x bin/*
+    
+    - name: Build GUI with PyInstaller
+      working-directory: scripts/GinanUI
+      run: |
+        pyinstaller --name GinanUI \
+          --windowed \
+          --add-data "app:app" \
+          --add-binary "../../bin/*:bin" \
+          --hidden-import PySide6 \
+          --hidden-import plotly \
+          --target-arch arm64 \
+          main.py
+    
+    - name: Upload GUI artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-gui-macos-arm64
+        path: scripts/GinanUI/dist/GinanUI.app/
+        retention-days: 30
+
+  build-gui-macos-x64:
+    runs-on: macos-13
+    needs: build-macos-x64
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Download macOS x64 binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: ginan-macos-x64
+        path: bin/
+    
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r scripts/GinanUI/requirements.txt
+        pip install pyinstaller
+    
+    - name: Make binaries executable
+      run: chmod +x bin/*
+    
+    - name: Build GUI with PyInstaller
+      working-directory: scripts/GinanUI
+      run: |
+        pyinstaller --name GinanUI \
+          --windowed \
+          --add-data "app:app" \
+          --add-binary "../../bin/*:bin" \
+          --hidden-import PySide6 \
+          --hidden-import plotly \
+          --target-arch x86_64 \
+          main.py
+    
+    - name: Upload GUI artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-gui-macos-x64
+        path: scripts/GinanUI/dist/GinanUI.app/
+        retention-days: 30

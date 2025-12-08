@@ -24,12 +24,8 @@
       "features": ["threads"]
     },
     {
-      "name": "lapack",
-      "platform": "!windows"
-    },
-    {
-      "name": "clapack",
-      "platform": "windows"
+      "name": "lapack-reference",
+      "platform": "!(windows | mingw)"
     },
     "yaml-cpp",
     "openssl",

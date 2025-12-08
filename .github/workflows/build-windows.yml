@@ -64,6 +64,11 @@ jobs:
         cd ${{ github.workspace }}
         ./vcpkg/vcpkg install --triplet x64-mingw-static --x-install-root=./vcpkg_installed --allow-unsupported
     
+    - name: Clean build directory
+      working-directory: src
+      run: |
+        rm -rf build/windows-cross-Release
+    
     - name: Configure CMake
       working-directory: src
       run: |

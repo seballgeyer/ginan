@@ -66,6 +66,12 @@ jobs:
         cd ${{ github.workspace }}
         .\vcpkg\vcpkg.exe install --triplet x64-mingw-static --x-install-root=./vcpkg_installed --allow-unsupported
     
+    - name: Clean build directory
+      shell: pwsh
+      working-directory: src
+      run: |
+        if (Test-Path "build/windows-mingw-Release") { Remove-Item -Recurse -Force build/windows-mingw-Release }
+    
     - name: Configure CMake
       shell: msys2 {0}
       working-directory: src

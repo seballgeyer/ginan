@@ -19,7 +19,9 @@ jobs:
     
     - name: Install system dependencies
       run: |
-        brew install cmake ninja pkg-config libomp
+        brew install cmake ninja pkg-config libomp gcc
+        # Add gfortran to PATH
+        echo "/opt/homebrew/bin" >> $GITHUB_PATH
     
     - name: Setup vcpkg binary cache
       run: |
@@ -84,7 +86,9 @@ jobs:
     
     - name: Install system dependencies
       run: |
-        brew install cmake ninja pkg-config libomp 
+        brew install cmake ninja pkg-config libomp gcc
+        # Add gfortran to PATH (x86_64 Homebrew location)
+        echo "/usr/local/bin" >> $GITHUB_PATH
     
     - name: Setup vcpkg binary cache
       run: |
@@ -98,9 +102,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-macos-x64-v2-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-macos-x64-v3-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-macos-x64-v2-
+          vcpkg-macos-x64-v3-
     
     - name: Setup vcpkg
       run: |

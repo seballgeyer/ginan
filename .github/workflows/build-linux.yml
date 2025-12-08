@@ -61,6 +61,11 @@ jobs:
         cd ${{ github.workspace }}
         ./vcpkg/vcpkg install --triplet x64-linux --x-install-root=./vcpkg_installed
     
+    - name: Clean build directory
+      working-directory: src
+      run: |
+        rm -rf build/linux-Release
+    
     - name: Configure CMake
       working-directory: src
       run: |

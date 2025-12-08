@@ -20,6 +20,8 @@ jobs:
     - name: Install system dependencies
       run: |
         brew install cmake ninja pkg-config libomp gcc
+        # Add gfortran to PATH
+        echo "/opt/homebrew/bin" >> $GITHUB_PATH
     
     - name: Setup vcpkg binary cache
       run: |
@@ -84,7 +86,9 @@ jobs:
     
     - name: Install system dependencies
       run: |
-        brew install cmake ninja pkg-config libomp gcc 
+        brew install cmake ninja pkg-config libomp gcc
+        # Add gfortran to PATH (x86_64 Homebrew location)
+        echo "/usr/local/bin" >> $GITHUB_PATH
     
     - name: Setup vcpkg binary cache
       run: |

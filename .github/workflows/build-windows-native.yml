@@ -61,7 +61,7 @@ jobs:
       shell: pwsh
       run: |
         cd ${{ github.workspace }}
-        .\vcpkg\vcpkg.exe install --triplet x64-mingw-static --x-install-root=./vcpkg_installed
+        .\vcpkg\vcpkg.exe install --triplet x64-mingw-static --x-install-root=./vcpkg_installed --allow-unsupported
     
     - name: Configure CMake
       shell: msys2 {0}

@@ -46,9 +46,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-windows-cross-v3-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-windows-cross-v4-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-windows-cross-v3-
+          vcpkg-windows-cross-v4-
     
     - name: Setup vcpkg
       run: |
@@ -63,6 +63,11 @@ jobs:
         export VCPKG_BUILD_TYPE=release
         cd ${{ github.workspace }}
         ./vcpkg/vcpkg install --triplet x64-mingw-static --x-install-root=./vcpkg_installed --allow-unsupported
+    
+    - name: Clean build directory
+      working-directory: src
+      run: |
+        rm -rf build/windows-cross-Release
     
     - name: Configure CMake
       working-directory: src

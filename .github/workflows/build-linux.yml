@@ -43,9 +43,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-linux-v3-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-linux-v4-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-linux-v3-
+          vcpkg-linux-v4-
     
     - name: Setup vcpkg
       run: |
@@ -60,6 +60,11 @@ jobs:
         export VCPKG_BUILD_TYPE=release
         cd ${{ github.workspace }}
         ./vcpkg/vcpkg install --triplet x64-linux --x-install-root=./vcpkg_installed
+    
+    - name: Clean build directory
+      working-directory: src
+      run: |
+        rm -rf build/linux-Release
     
     - name: Configure CMake
       working-directory: src

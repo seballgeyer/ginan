@@ -44,6 +44,10 @@ jobs:
         fi
         echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
     
+    - name: Install vcpkg dependencies
+      run: |
+        ${{ github.workspace }}/vcpkg/vcpkg install --triplet arm64-osx
+    
     - name: Configure CMake
       working-directory: src
       run: |
@@ -102,6 +106,10 @@ jobs:
           ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
         fi
         echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+    
+    - name: Install vcpkg dependencies
+      run: |
+        ${{ github.workspace }}/vcpkg/vcpkg install --triplet x64-osx
     
     - name: Configure CMake
       working-directory: src

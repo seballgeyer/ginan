@@ -61,6 +61,7 @@ jobs:
     - name: Install vcpkg dependencies
       shell: pwsh
       run: |
+        $env:VCPKG_BUILD_TYPE = "release"
         cd ${{ github.workspace }}
         .\vcpkg\vcpkg.exe install --triplet x64-mingw-static --x-install-root=./vcpkg_installed --allow-unsupported
     

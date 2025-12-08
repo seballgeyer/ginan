@@ -47,6 +47,7 @@ jobs:
     
     - name: Install vcpkg dependencies
       run: |
+        export VCPKG_BUILD_TYPE=release
         cd ${{ github.workspace }}
         ./vcpkg/vcpkg install --triplet arm64-osx --x-install-root=./vcpkg_installed
     
@@ -111,6 +112,7 @@ jobs:
     
     - name: Install vcpkg dependencies
       run: |
+        export VCPKG_BUILD_TYPE=release
         cd ${{ github.workspace }}
         ./vcpkg/vcpkg install --triplet x64-osx --x-install-root=./vcpkg_installed
     

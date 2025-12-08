@@ -21,7 +21,7 @@
     "eigen3",
     {
       "name": "openblas",
-      "features": ["threads"]
+      "features": ["threads", "dynamic-arch"]
     },
     "yaml-cpp",
     "openssl",

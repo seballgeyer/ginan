@@ -23,7 +23,14 @@
       "name": "openblas",
       "features": ["threads"]
     },
-    "lapack",
+    {
+      "name": "lapack",
+      "platform": "!windows & !mingw"
+    },
+    {
+      "name": "clapack",
+      "platform": "windows & !mingw"
+    },
     "yaml-cpp",
     "openssl",
     "zstd",

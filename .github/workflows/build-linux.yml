@@ -43,9 +43,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-linux-v2-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-linux-v4-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-linux-v2-
+          vcpkg-linux-v4-
     
     - name: Setup vcpkg
       run: |

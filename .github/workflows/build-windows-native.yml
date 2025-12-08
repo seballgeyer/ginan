@@ -1,10 +1,11 @@
 name: Build Windows (Native)
 
 on:
-  push:
-    branches: [ main, develop, develop-weekly ]
-  pull_request:
-    branches: [ main, develop, develop-weekly ]
+  # Disabled until Windows native build issues are resolved
+  # push:
+  #   branches: [ main, develop, develop-weekly ]
+  # pull_request:
+  #   branches: [ main, develop, develop-weekly ]
   workflow_dispatch:
 
 jobs:
@@ -45,9 +46,9 @@ jobs:
         path: |
           .vcpkg-cache
           vcpkg
-        key: vcpkg-windows-native-v2-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-windows-native-v4-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-windows-native-v2-
+          vcpkg-windows-native-v4-
     
     - name: Setup vcpkg
       shell: pwsh

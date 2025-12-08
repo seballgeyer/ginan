@@ -1,0 +1,56 @@
+name: Build GUI Linux
+
+on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
+  workflow_dispatch:
+
+jobs:
+  build-gui-linux:
+    runs-on: ubuntu-latest
+    needs: build-linux
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Download Linux binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: ginan-linux-x64
+        path: bin/
+    
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r scripts/GinanUI/requirements.txt
+        pip install pyinstaller
+    
+    - name: Make binaries executable
+      run: chmod +x bin/*
+    
+    - name: Build GUI with PyInstaller
+      working-directory: scripts/GinanUI
+      run: |
+        pyinstaller --name GinanUI \
+          --windowed \
+          --add-data "app:app" \
+          --add-binary "../../bin/*:bin" \
+          --hidden-import PySide6 \
+          --hidden-import plotly \
+          main.py
+    
+    - name: Upload GUI artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-gui-linux-x64
+        path: scripts/GinanUI/dist/GinanUI/
+        retention-days: 30

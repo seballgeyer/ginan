@@ -19,7 +19,7 @@ jobs:
     
     - name: Install system dependencies
       run: |
-        brew install cmake ninja pkg-config
+        brew install cmake ninja pkg-config gomp
     
     - name: Setup vcpkg binary cache
       run: |
@@ -84,7 +84,7 @@ jobs:
     
     - name: Install system dependencies
       run: |
-        brew install cmake ninja pkg-config
+        brew install cmake ninja pkg-config gomp 
     
     - name: Setup vcpkg binary cache
       run: |

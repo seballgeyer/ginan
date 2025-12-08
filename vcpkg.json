@@ -27,10 +27,6 @@
       "name": "lapack-reference",
       "platform": "!(windows | mingw)"
     },
-    {
-      "name": "lapacke",
-      "platform": "windows | mingw"
-    },
     "yaml-cpp",
     "openssl",
     "zstd",

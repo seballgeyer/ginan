@@ -21,15 +21,11 @@
     "eigen3",
     {
       "name": "openblas",
-      "features": ["threads"]
+      "features": ["threads", "dynamic-arch"]
     },
     {
-      "name": "lapack",
-      "platform": "!windows"
-    },
-    {
-      "name": "clapack",
-      "platform": "windows"
+      "name": "lapack-reference",
+      "platform": "!mingw"
     },
     "yaml-cpp",
     "openssl",

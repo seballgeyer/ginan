@@ -1,18 +1,23 @@
 name: Build GUI Linux
 
 on:
-  push:
-    branches: [ main, develop, develop-weekly ]
-  pull_request:
-    branches: [ main, develop, develop-weekly ]
+  workflow_run:
+    workflows: ["Build Linux"]
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
   build-gui-linux:
     runs-on: ubuntu-latest
-    needs: build-linux
     
     steps:
+    - name: Check workflow run conclusion
+      if: ${{ github.event.workflow_run.conclusion != 'success' }}
+      run: |
+        echo "Core build workflow failed or was cancelled"
+        exit 1
+    
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -33,6 +38,11 @@ jobs:
       run: |
         pip install -r scripts/GinanUI/requirements.txt
         pip install pyinstaller
+    
+    - name: Convert UI files to Python
+      working-directory: scripts/GinanUI
+      run: |
+        find . -name "*.ui" -exec pyside6-uic {} -o {}.py \;
     
     - name: Make binaries executable
       run: chmod +x bin/*

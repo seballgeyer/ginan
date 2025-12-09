@@ -1,18 +1,23 @@
 name: Build GUI macOS
 
 on:
-  push:
-    branches: [ main, develop, develop-weekly ]
-  pull_request:
-    branches: [ main, develop, develop-weekly ]
+  workflow_run:
+    workflows: ["Build macOS"]
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
   build-gui-macos-arm64:
     runs-on: macos-14
-    needs: build-macos-arm64
     
     steps:
+    - name: Check workflow run conclusion
+      if: ${{ github.event.workflow_run.conclusion != 'success' }}
+      run: |
+        echo "Core build workflow failed or was cancelled"
+        exit 1
+    
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -33,6 +38,11 @@ jobs:
       run: |
         pip install -r scripts/GinanUI/requirements.txt
         pip install pyinstaller
+    
+    - name: Convert UI files to Python
+      working-directory: scripts/GinanUI
+      run: |
+        find . -name "*.ui" -exec pyside6-uic {} -o {}.py \;
     
     - name: Make binaries executable
       run: chmod +x bin/*
@@ -58,9 +68,14 @@ jobs:
 
   build-gui-macos-x64:
     runs-on: macos-13
-    needs: build-macos-x64
     
     steps:
+    - name: Check workflow run conclusion
+      if: ${{ github.event.workflow_run.conclusion != 'success' }}
+      run: |
+        echo "Core build workflow failed or was cancelled"
+        exit 1
+    
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -81,6 +96,11 @@ jobs:
       run: |
         pip install -r scripts/GinanUI/requirements.txt
         pip install pyinstaller
+    
+    - name: Convert UI files to Python
+      working-directory: scripts/GinanUI
+      run: |
+        find . -name "*.ui" -exec pyside6-uic {} -o {}.py \;
     
     - name: Make binaries executable
       run: chmod +x bin/*

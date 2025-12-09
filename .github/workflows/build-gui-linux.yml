@@ -44,7 +44,9 @@ jobs:
     - name: Convert UI files to Python
       working-directory: scripts/GinanUI
       run: |
-        find . -name "*.ui" -exec pyside6-uic {} -o {}.py \;
+        pyside6-uic app/views/main_window.ui -o app/views/main_window_ui.py
+        # Fix import path in generated file
+        sed -i '23s/.*/from scripts.GinanUI.app.resources import ginan_logo_rc/' app/views/main_window_ui.py
     
     - name: Make binaries executable
       run: chmod +x bin/*

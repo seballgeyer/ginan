@@ -45,7 +45,15 @@ jobs:
       working-directory: scripts/GinanUI
       shell: pwsh
       run: |
-        Get-ChildItem -Recurse -Filter "*.ui" | ForEach-Object { pyside6-uic $_.FullName -o "$($_.FullName).py" }
+        pyside6-uic app/views/main_window.ui -o app/views/main_window_ui.py
+        # Fix import path in generated file
+        (Get-Content app/views/main_window_ui.py) | ForEach-Object {
+          if ($_.ReadCount -eq 23) {
+            "from scripts.GinanUI.app.resources import ginan_logo_rc"
+          } else {
+            $_
+          }
+        } | Set-Content app/views/main_window_ui.py
     
     - name: Build GUI with PyInstaller
       working-directory: scripts/GinanUI

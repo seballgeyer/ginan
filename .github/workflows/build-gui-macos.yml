@@ -56,11 +56,14 @@ jobs:
       run: |
         pyinstaller --name GinanUI \
           --windowed \
+          --onedir \
           --add-data "app:app" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import plotly \
+          --collect-all PySide6 \
           --target-arch arm64 \
+          --noconfirm \
           main.py
     
     - name: Upload GUI artifact
@@ -118,11 +121,14 @@ jobs:
       run: |
         pyinstaller --name GinanUI \
           --windowed \
+          --onedir \
           --add-data "app:app" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import plotly \
+          --collect-all PySide6 \
           --target-arch x86_64 \
+          --noconfirm \
           main.py
     
     - name: Upload GUI artifact

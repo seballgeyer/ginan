@@ -23,9 +23,16 @@ test_visualisation = False
 def setup_main_window():
     # Only compile UI if the compiled file doesn't exist (development mode)
     ui_file = Path(__file__).parent / "views" / "main_window_ui.py"
-    if not ui_file.exists():
-        compile_ui()  # Compile .ui files during development
-    from scripts.GinanUI.app.views.main_window_ui import Ui_MainWindow
+    #if not ui_file.exists():
+    #    compile_ui()  # Compile .ui files during development
+    import sys
+    IS_FROZEN = getattr(sys, 'frozen', False)
+
+    if not IS_FROZEN:
+    # Only compile UI during development
+        compile_ui()
+    else:
+        from scripts.GinanUI.app.views.main_window_ui import Ui_MainWindow
     return Ui_MainWindow()
 
 class MainWindow(QMainWindow):

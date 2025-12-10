@@ -55,7 +55,6 @@ jobs:
       working-directory: scripts/GinanUI
       run: |
         pyinstaller --name GinanUI \
-          --windowed \
           --onedir \
           --clean \
           --add-data "app/resources:app/resources" \
@@ -71,7 +70,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ginan-gui-macos-arm64
-        path: scripts/GinanUI/dist/GinanUI.app/
+        path: scripts/GinanUI/dist/GinanUI/
         retention-days: 30
 
   build-gui-macos-x64:
@@ -121,7 +120,6 @@ jobs:
       working-directory: scripts/GinanUI
       run: |
         pyinstaller --name GinanUI \
-          --windowed \
           --onedir \
           --clean \
           --add-data "app/resources:app/resources" \
@@ -137,5 +135,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ginan-gui-macos-x64
-        path: scripts/GinanUI/dist/GinanUI.app/
+        path: scripts/GinanUI/dist/GinanUI/
         retention-days: 30

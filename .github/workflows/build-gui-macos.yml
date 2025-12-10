@@ -62,6 +62,7 @@ jobs:
         pyinstaller --name GinanUI \
           --windowed \
           --onedir \
+          --clean \
           --add-data "app:app" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \
@@ -132,6 +133,7 @@ jobs:
         pyinstaller --name GinanUI \
           --windowed \
           --onedir \
+          --clean \
           --add-data "app:app" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \

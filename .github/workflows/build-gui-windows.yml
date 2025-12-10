@@ -1,11 +1,15 @@
 name: Build GUI Windows
 
 on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
   # workflow_run:
   #   workflows: ["Build Windows (Cross-Compile)"]
   #   types:
   #     - completed
-  # workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   build-gui-windows:
@@ -23,15 +27,15 @@ jobs:
       with:
         submodules: recursive
     
-    # - name: Download Windows binaries
-    #   uses: dawidd6/action-download-artifact@v3
-    #   with:
-    #     name: ginan-windows-x64
-    #     path: bin/
-    #     github_token: ${{ secrets.GITHUB_TOKEN }}
-    #     workflow: build-windows.yml
-    #     workflow_conclusion: success
-    #     if_no_artifact_found: fail
+    - name: Download Windows binaries
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        name: ginan-windows-x64
+        path: bin/
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        workflow: build-windows.yml
+        workflow_conclusion: success
+        if_no_artifact_found: fail
     
     - name: Setup Python
       uses: actions/setup-python@v5

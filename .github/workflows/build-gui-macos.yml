@@ -32,7 +32,7 @@ jobs:
         name: ginan-macos-arm64
         path: bin/
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        workflow: build-linux.yml
+        workflow: build-macos.yml
         workflow_conclusion: success
         if_no_artifact_found: fail
 
@@ -122,15 +122,15 @@ jobs:
       with:
         submodules: recursive
     
-    # - name: Download macOS x64 binaries
-    #   uses: dawidd6/action-download-artifact@v3
-    #   with:
-    #     name: ginan-macos-x64
-    #     path: bin/
-    #     github_token: ${{ secrets.GITHUB_TOKEN }}
-    #     workflow: build-macos.yml
-    #     workflow_conclusion: success
-    #     if_no_artifact_found: fail
+    - name: Download macOS x64 binaries
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        name: ginan-macos-x64
+        path: bin/
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        workflow: build-macos.yml
+        workflow_conclusion: success
+        if_no_artifact_found: fail
     
     - name: Setup Python
       uses: actions/setup-python@v5

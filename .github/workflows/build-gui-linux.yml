@@ -27,15 +27,15 @@ jobs:
       with:
         submodules: recursive
     
-    # - name: Download Linux binaries
-    #   uses: dawidd6/action-download-artifact@v3
-    #   with:
-    #     name: ginan-linux-x64
-    #     path: bin/
-    #     github_token: ${{ secrets.GITHUB_TOKEN }}
-    #     workflow: build-linux.yml
-    #     workflow_conclusion: success
-    #     if_no_artifact_found: fail
+    - name: Download Linux binaries
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        name: ginan-linux-x64
+        path: bin/
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        workflow: build-linux.yml
+        workflow_conclusion: success
+        if_no_artifact_found: fail
     
     - name: Setup Python
       uses: actions/setup-python@v5

@@ -88,5 +88,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ginan-gui-windows-x64
-        path: scripts/GinanUI/dist/GinanUI/
+        path: dist/GinanUI/
         retention-days: 30

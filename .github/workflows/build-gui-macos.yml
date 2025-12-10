@@ -63,7 +63,11 @@ jobs:
           --onedir \
           --clean \
           --add-data "scripts/GinanUI/app:app" \
+            --add-data "scripts/GinanUI/QtWebEngineResources:QtWebEngineResources" \
+            --add-binary "scripts/GinanUI/QtWebEngineProcess.app:Helpers" \
+            --add-binary "scripts/GinanUI/QtWebEngineResources/*.pak:resources" \
           --add-data "scripts/plot_pos.py:scripts" \
+    
           --add-binary "bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
@@ -173,6 +177,9 @@ jobs:
           --onedir \
           --clean \
           --add-data "scripts/GinanUI/app:app" \
+          --add-data "scripts/GinanUI/QtWebEngineResources:QtWebEngineResources" \
+          --add-binary "scripts/GinanUI/QtWebEngineProcess.app:Helpers" \
+          --add-binary "scripts/GinanUI/QtWebEngineResources/*.pak:resources" \
           --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
           --hidden-import PySide6 \
@@ -199,6 +206,45 @@ jobs:
           --target-arch x86_64 \
           --noconfirm \
           scripts/GinanUI/main.py
+
+    - name: Copy Qt WebEngine resources (.pak + locales)
+      run: |
+        set -e
+        PYSIDE_DIR=$(python -c 'import PySide6, os; print(os.path.dirname(PySide6.__file__))')
+        QT_DIR="$PYSIDE_DIR/Qt"
+        RES_SRC1="$QT_DIR/resources"
+        RES_SRC2="$QT_DIR/lib/QtWebEngineCore.framework/Resources"
+        RES_DEST="dist/GinanUI/_internal/PySide6/Qt/resources"
+        mkdir -p "$RES_DEST"
+        copied=false
+        if [ -d "$RES_SRC1" ]; then
+          cp -R "$RES_SRC1"/* "$RES_DEST"/
+          copied=true
+        fi
+        if [ -d "$RES_SRC2" ]; then
+          cp -R "$RES_SRC2"/*.pak "$RES_DEST"/ || true
+          if [ -d "$RES_SRC2/qtwebengine_locales" ]; then
+            cp -R "$RES_SRC2/qtwebengine_locales" "$RES_DEST"/
+          fi
+          copied=true
+        fi
+        if [ "$copied" != true ]; then
+          echo "Qt WebEngine resources not found; build may fail";
+        fi
+
+    - name: Create launcher script (run.sh)
+      run: |
+        cat > dist/GinanUI/run.sh << 'EOF'
+        #!/usr/bin/env zsh
+        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+        export QTWEBENGINEPROCESS_PATH="$SCRIPT_DIR/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
+        export QTWEBENGINE_RESOURCES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources"
+        if command -v xattr >/dev/null 2>&1; then
+          xattr -dr com.apple.quarantine "$SCRIPT_DIR" 2>/dev/null || true
+        fi
+        exec "$SCRIPT_DIR/GinanUI"
+        EOF
+        chmod +x dist/GinanUI/run.sh
     
     - name: Copy QtWebEngineProcess
       run: |
@@ -224,6 +270,8 @@ jobs:
         codesign --force -s - _internal/Python || true
         # Sign QtWebEngineProcess
         codesign --force --deep -s - Helpers/QtWebEngineProcess.app || true
+        # Sign resources .pak if required
+        find _internal/PySide6/Qt/resources -type f -name "*.pak" -exec codesign --force --sign - {} \; || true
     
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4

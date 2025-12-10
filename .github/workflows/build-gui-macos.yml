@@ -173,7 +173,6 @@ jobs:
           --onedir \
           --clean \
           --add-data "scripts/GinanUI/app:app" \
-          --add-data "scripts/GinanUI/QtWebEngineResources:QtWebEngineResources" \
             --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
           --hidden-import PySide6 \

@@ -23,27 +23,45 @@ def get_pea_exec():
     :raises RuntimeError: Windows without "pea" on PATH or unsupported platform. No verification that "pea" is actually
     ginan-pea executable is performed.
     """
-    # TEMPORARY: Returns "None" until the PEA binary is properly set up
-    # This allows the UI to open without requiring the executable
-    # TODO: Remove this return statement once the binary is available
-    print("[Execution] ⚠️ Binary finder not yet configured - UI will open but processing will fail")
-    return None
-
-    # AppImage works natively
+    import sys
+    
+    # Check if running in PyInstaller bundle
+    if getattr(sys, 'frozen', False):
+        # Running in bundled mode
+        base_path = Path(sys._MEIPASS)
+        
+        # On macOS .app bundles, binaries are in Resources/bin/
+        if platform.system().lower() == "darwin":
+            # Try Resources/bin first (macOS .app structure)
+            pea_path = base_path.parent / "Resources" / "bin" / "pea"
+            if pea_path.exists():
+                return pea_path
+            # Fallback to _internal/bin
+            pea_path = base_path / "bin" / "pea"
+            if pea_path.exists():
+                return pea_path
+        
+        # Linux/Windows: binaries in _internal/bin
+        else:
+            pea_path = base_path / "bin" / "pea"
+            if pea_path.exists():
+                return pea_path
+        
+        print(f"[Execution] Bundled binary not found in expected locations")
+        return None
+    
+    # Running in development mode
+    # Check if pea is available on PATH
+    if shutil.which("pea"):
+        return "pea"
+    
+    # Platform-specific paths for development
     if platform.system().lower() == "linux":
         executable = files('app.resources').joinpath('ginan.AppImage')
-
-    # PEA available on PATH
-    elif shutil.which("pea"):
-        executable = "pea"
-
     elif platform.system().lower() == "darwin":
         executable = files('app.resources.osx_arm64.bin').joinpath('pea')
-
     elif platform.system().lower() == "windows":
         raise RuntimeError("No binary for windows available")
-
-    # Unknown system
     else:
         raise RuntimeError("Unsupported platform: " + platform.system())
 

@@ -12,22 +12,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-gui-windows:
-    runs-on: windows-latest
-    
-    steps:
-    # - name: Check workflow run conclusion
-    #   if: ${{ github.event.workflow_run.conclusion != 'success' }}
-    #   run: |
-    #     echo "Core build workflow failed or was cancelled"
-    #     exit 1
-  # workflow_run:
-  #   workflows: ["Build macOS"]
-  #   types:
-  #     - completed
-  # workflow_dispatch:
-
-jobs:
   build-gui-macos-arm64:
     runs-on: macos-15
     

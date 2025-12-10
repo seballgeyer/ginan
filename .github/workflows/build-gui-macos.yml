@@ -58,11 +58,11 @@ jobs:
           --windowed \
           --onedir \
           --clean \
-          --add-data "app:app" \
+          --add-data "app/resources:app/resources" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import plotly \
-          --collect-all PySide6 \
+          --hidden-import app.views.main_window_ui \
           --target-arch arm64 \
           --noconfirm \
           main.py
@@ -124,11 +124,11 @@ jobs:
           --windowed \
           --onedir \
           --clean \
-          --add-data "app:app" \
+          --add-data "app/resources:app/resources" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import plotly \
-          --collect-all PySide6 \
+          --hidden-import app.views.main_window_ui \
           --target-arch x86_64 \
           --noconfirm \
           main.py

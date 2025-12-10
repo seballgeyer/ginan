@@ -171,7 +171,14 @@ class Execution:
             else:
                 new_seq = CommentedSeq([rnx_val])
                 new_seq.fa.set_block_style()
-                self.config["inputs"]["gnss_observations"]["rnx_inputs"] = new_seq
+                # If new_seq is a path string, split into directory and filename
+                if isinstance(rnx_val, str):
+                    dir_path, filename = os.path.split(rnx_val)
+                    # Ensure directory path ends with os.sep (cross-platform)
+                    if dir_path and not dir_path.endswith(os.sep):
+                        dir_path += os.sep
+                    self.config["inputs"]["gnss_observations"]["rnx_inputs"] = filename
+                    self.config["inputs"]["gnss_observations"]["rnx_inputs_root"] = dir_path
         except Exception as e:
             print(f"[apply_ui_config] Error setting rnx_inputs: {e}")
 

@@ -62,11 +62,13 @@ jobs:
         pyinstaller --name GinanUI `
           --windowed `
           --add-data "scripts/GinanUI/app;scripts/GinanUI/app" `
+          --add-data "scripts/plot_pos.py;scripts" `
           --add-binary "bin/*;bin" `
           --hidden-import PySide6 `
           --hidden-import PySide6.QtWebEngineWidgets `
           --hidden-import PySide6.QtWebEngineCore `
           --hidden-import plotly `
+          --hidden-import scripts.plot_pos `
           --hidden-import scripts.GinanUI.app `
           --hidden-import scripts.GinanUI.app.models `
           --hidden-import scripts.GinanUI.app.models.execution `

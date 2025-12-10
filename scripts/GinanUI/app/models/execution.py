@@ -47,7 +47,7 @@ def get_pea_exec():
             exe_name = "pea.exe" if platform.system().lower() == "windows" else "pea"
             pea_path = base_path / "bin" / exe_name
             if pea_path.exists():
-            return pea_path
+                return pea_path
         
         print(f"[Execution] Bundled binary not found in expected locations")
         return None

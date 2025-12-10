@@ -17,6 +17,14 @@ jobs:
       with:
         submodules: recursive
     
+    - name: Cache APT packages
+      uses: actions/cache@v4
+      with:
+        path: /var/cache/apt/archives
+        key: apt-mingw-${{ runner.os }}-${{ hashFiles('.github/workflows/build-windows.yml') }}
+        restore-keys: |
+          apt-mingw-${{ runner.os }}-
+    
     - name: Install system dependencies and MinGW-w64
       run: |
         sudo apt-get update

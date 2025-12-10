@@ -57,7 +57,7 @@ jobs:
         pyinstaller --name GinanUI \
           --onedir \
           --clean \
-          --add-data "app/resources:app/resources" \
+          --add-data "app:app" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
@@ -135,7 +135,7 @@ jobs:
         pyinstaller --name GinanUI \
           --onedir \
           --clean \
-          --add-data "app/resources:app/resources" \
+          --add-data "app:app" \
           --add-binary "../../bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \

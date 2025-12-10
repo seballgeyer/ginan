@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-macos-arm64:
-    runs-on: macos-15  # macOS ARM64 runner
+    runs-on: macos-14  # macOS ARM64 runner
     
     steps:
     - name: Checkout repository
@@ -76,7 +76,7 @@ jobs:
         retention-days: 30
 
   build-macos-x64:
-    runs-on: macos-15-intel  # macOS x86_64 runner
+    runs-on: macos-14-intel  # macOS x86_64 runner
     
     steps:
     - name: Checkout repository

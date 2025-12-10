@@ -1,6 +1,10 @@
 name: Build GUI Linux
 
 on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
   # workflow_run:
   #   workflows: ["Build Linux"]
   #   types:

@@ -59,15 +59,14 @@ jobs:
      
     - name: Build GUI with PyInstaller
       run: |
-        pyinstaller --name GinanUI \
+        python -m PyInstaller --name GinanUI \
           --onedir \
           --clean \
           --add-data "scripts/GinanUI/app:app" \
-            --add-data "scripts/GinanUI/QtWebEngineResources:QtWebEngineResources" \
-            --add-binary "scripts/GinanUI/QtWebEngineProcess.app:Helpers" \
-            --add-binary "scripts/GinanUI/QtWebEngineResources/*.pak:resources" \
+          --add-data "scripts/GinanUI/QtWebEngineResources:QtWebEngineResources" \
+          --add-binary "scripts/GinanUI/QtWebEngineProcess.app:Helpers" \
+          --add-binary "scripts/GinanUI/QtWebEngineResources/*.pak:resources" \
           --add-data "scripts/plot_pos.py:scripts" \
-    
           --add-binary "bin/*:bin" \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \

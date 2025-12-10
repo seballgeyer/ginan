@@ -90,15 +90,6 @@ jobs:
           --noconfirm \
           scripts/GinanUI/main.py
     
-    - name: Code sign binaries (ad-hoc)
-      working-directory: scripts/GinanUI/dist/GinanUI
-      run: |
-        # Ad-hoc sign all executables and libraries to avoid Gatekeeper issues
-        find . -type f -perm +111 -exec codesign --force --deep -s - {} \;
-        find . -name "*.dylib" -exec codesign --force -s - {} \;
-        find . -name "*.so" -exec codesign --force -s - {} \;
-        # Sign the Python shared library specifically
-        codesign --force -s - _internal/Python || true
     
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4
@@ -185,15 +176,6 @@ jobs:
           --noconfirm \
           scripts/GinanUI/main.py
     
-    - name: Code sign binaries (ad-hoc)
-      working-directory: scripts/GinanUI/dist/GinanUI
-      run: |
-        # Ad-hoc sign all executables and libraries to avoid Gatekeeper issues
-        find . -type f -perm +111 -exec codesign --force --deep -s - {} \;
-        find . -name "*.dylib" -exec codesign --force -s - {} \;
-        find . -name "*.so" -exec codesign --force -s - {} \;
-        # Sign the Python shared library specifically
-        codesign --force -s - _internal/Python || true
     
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4

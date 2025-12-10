@@ -76,7 +76,7 @@ jobs:
         retention-days: 30
 
   build-macos-x64:
-    runs-on: macos-13  # macOS x86_64 runner
+    runs-on: macos-15-intel  # macOS x86_64 runner
     
     steps:
     - name: Checkout repository

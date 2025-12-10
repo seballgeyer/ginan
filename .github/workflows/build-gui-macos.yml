@@ -50,12 +50,7 @@ jobs:
     
     - name: Make binaries executable
       run: chmod +x bin/*
-    
-    - name: Clean PyInstaller build directories
-      working-directory: scripts/GinanUI
-      run: |
-        rm -rf build dist *.spec
-    
+     
     - name: Build GUI with PyInstaller
       working-directory: scripts/GinanUI
       run: |
@@ -121,11 +116,6 @@ jobs:
     
     - name: Make binaries executable
       run: chmod +x bin/*
-    
-    - name: Clean PyInstaller build directories
-      working-directory: scripts/GinanUI
-      run: |
-        rm -rf build dist *.spec
     
     - name: Build GUI with PyInstaller
       working-directory: scripts/GinanUI

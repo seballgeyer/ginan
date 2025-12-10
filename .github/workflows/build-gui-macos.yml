@@ -90,6 +90,30 @@ jobs:
           --noconfirm \
           scripts/GinanUI/main.py
     
+    - name: Copy QtWebEngineProcess
+      run: |
+        # Find and copy QtWebEngineProcess to where Qt expects it
+        PYSIDE_PATH=$(python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
+        # Create Helpers directory structure
+        mkdir -p dist/GinanUI/Helpers
+        # Copy QtWebEngineProcess from PySide6 installation
+        if [ -d "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" ]; then
+          cp -R "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" dist/GinanUI/Helpers/
+        elif [ -d "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" ]; then
+          cp -R "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" dist/GinanUI/Helpers/
+        fi
+    
+    - name: Code sign binaries (ad-hoc)
+      working-directory: dist/GinanUI
+      run: |
+        # Ad-hoc sign all executables and libraries to avoid Gatekeeper issues
+        find . -type f -perm +111 -exec codesign --force --deep -s - {} \;
+        find . -name "*.dylib" -exec codesign --force -s - {} \;
+        find . -name "*.so" -exec codesign --force -s - {} \;
+        # Sign the Python shared library specifically
+        codesign --force -s - _internal/Python || true
+        # Sign QtWebEngineProcess
+        codesign --force --deep -s - Helpers/QtWebEngineProcess.app || true
     
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4
@@ -176,6 +200,30 @@ jobs:
           --noconfirm \
           scripts/GinanUI/main.py
     
+    - name: Copy QtWebEngineProcess
+      run: |
+        # Find and copy QtWebEngineProcess to where Qt expects it
+        PYSIDE_PATH=$(python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
+        # Create Helpers directory structure
+        mkdir -p dist/GinanUI/Helpers
+        # Copy QtWebEngineProcess from PySide6 installation
+        if [ -d "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" ]; then
+          cp -R "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" dist/GinanUI/Helpers/
+        elif [ -d "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" ]; then
+          cp -R "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" dist/GinanUI/Helpers/
+        fi
+    
+    - name: Code sign binaries (ad-hoc)
+      working-directory: dist/GinanUI
+      run: |
+        # Ad-hoc sign all executables and libraries to avoid Gatekeeper issues
+        find . -type f -perm +111 -exec codesign --force --deep -s - {} \;
+        find . -name "*.dylib" -exec codesign --force -s - {} \;
+        find . -name "*.so" -exec codesign --force -s - {} \;
+        # Sign the Python shared library specifically
+        codesign --force -s - _internal/Python || true
+        # Sign QtWebEngineProcess
+        codesign --force --deep -s - Helpers/QtWebEngineProcess.app || true
     
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4

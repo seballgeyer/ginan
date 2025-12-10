@@ -61,7 +61,7 @@ jobs:
       run: |
         pyinstaller --name GinanUI `
           --windowed `
-          --add-data "scripts/GinanUI/app;scripts/GinanUI/app" `
+          --add-data "scripts/GinanUI/app;app" `
           --add-data "scripts/plot_pos.py;scripts" `
           --add-binary "bin/*;bin" `
           --hidden-import PySide6 `

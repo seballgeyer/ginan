@@ -85,6 +85,10 @@ jobs:
             --add-data "scripts/GinanUI/app:app" \
             --add-data "scripts/plot_pos.py:scripts" \
             --add-binary "bin/*:bin" \
+            --collect-submodules numpy \
+            --collect-submodules pandas \
+            --copy-metadata numpy \
+            --copy-metadata pandas \
             --collect-all PySide6.QtWebEngineCore \
             --collect-all PySide6.QtWebEngineWidgets \
             --collect-submodules PySide6 \

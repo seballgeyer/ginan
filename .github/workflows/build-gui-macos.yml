@@ -107,6 +107,9 @@ jobs:
         if [ -d "$RES_SRC2" ]; then
           cp -R "$RES_SRC2"/*.pak "$RES_DEST"/ || true
           cp -R "$RES_SRC2"/*.dat "$RES_DEST"/ || true
+          # V8 snapshot files (name varies by Qt/Chromium version)
+          [ -f "$RES_SRC2/v8_context_snapshot.bin" ] && cp "$RES_SRC2/v8_context_snapshot.bin" "$RES_DEST"/ || true
+          [ -f "$RES_SRC2/snapshot_blob.bin" ] && cp "$RES_SRC2/snapshot_blob.bin" "$RES_DEST"/ || true
           if [ -d "$RES_SRC2/qtwebengine_locales" ]; then
             cp -R "$RES_SRC2/qtwebengine_locales" "$RES_DEST"/
           fi
@@ -266,6 +269,9 @@ jobs:
         if [ -d "$RES_SRC2" ]; then
           cp -R "$RES_SRC2"/*.pak "$RES_DEST"/ || true
           cp -R "$RES_SRC2"/*.dat "$RES_DEST"/ || true
+          # V8 snapshot files (name varies by Qt/Chromium version)
+          [ -f "$RES_SRC2/v8_context_snapshot.bin" ] && cp "$RES_SRC2/v8_context_snapshot.bin" "$RES_DEST"/ || true
+          [ -f "$RES_SRC2/snapshot_blob.bin" ] && cp "$RES_SRC2/snapshot_blob.bin" "$RES_DEST"/ || true
           if [ -d "$RES_SRC2/qtwebengine_locales" ]; then
             cp -R "$RES_SRC2/qtwebengine_locales" "$RES_DEST"/
           fi
@@ -283,6 +289,12 @@ jobs:
         export QTWEBENGINEPROCESS_PATH="$SCRIPT_DIR/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
         export QTWEBENGINE_RESOURCES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources"
         export QTWEBENGINE_LOCALES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources/qtwebengine_locales"
+        # Workaround macOS sandbox policy errors in QtWebEngine and reduce logs
+        export QTWEBENGINE_DISABLE_SANDBOX=1
+        export QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox --disable-gpu-sandbox --disable-seccomp-filter-sandbox --disable-logging --log-level=3"
+        # Help QtWebEngineProcess resolve Qt frameworks
+        export DYLD_FRAMEWORK_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
+        export DYLD_LIBRARY_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
         if command -v xattr >/dev/null 2>&1; then
           xattr -dr com.apple.quarantine "$SCRIPT_DIR" 2>/dev/null || true
         fi

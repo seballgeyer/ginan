@@ -124,6 +124,12 @@ jobs:
         export QTWEBENGINEPROCESS_PATH="$SCRIPT_DIR/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
         export QTWEBENGINE_RESOURCES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources"
         export QTWEBENGINE_LOCALES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources/qtwebengine_locales"
+        # Workaround macOS sandbox policy errors in QtWebEngine
+        export QTWEBENGINE_DISABLE_SANDBOX=1
+        export QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox"
+        # Ensure Qt frameworks are discoverable for QtWebEngineProcess
+        export DYLD_FRAMEWORK_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
+        export DYLD_LIBRARY_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
         if command -v xattr >/dev/null 2>&1; then
           xattr -dr com.apple.quarantine "$SCRIPT_DIR" 2>/dev/null || true
         fi

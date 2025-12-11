@@ -89,12 +89,18 @@ jobs:
             --collect-submodules pandas \
             --copy-metadata numpy \
             --copy-metadata pandas \
+            --collect-all scipy \
+            --collect-all statsmodels \
+            --copy-metadata scipy \
+            --copy-metadata statsmodels \
             --collect-all PySide6.QtWebEngineCore \
             --collect-all PySide6.QtWebEngineWidgets \
             --collect-submodules PySide6 \
             --hidden-import PySide6 \
             --hidden-import PySide6.QtWebEngineWidgets \
             --hidden-import PySide6.QtWebEngineCore \
+            --hidden-import scipy._cyutility \
+            --hidden-import scipy.linalg._cythonized_array_utils \
             --hidden-import plotly \
             --hidden-import scripts.plot_pos \
             --hidden-import scripts.GinanUI.app \

@@ -156,10 +156,20 @@ class Execution:
 
         # 1. Set core inputs / outputs
         self.edit_config("inputs.inputs_root", str(INPUT_PRODUCTS_PATH) + "/", False)
-        self.edit_config("inputs.gnss_observations.gnss_observations_root", str(INPUT_PRODUCTS_PATH), False)
 
         # Normalise RNX path
-        rnx_val = normalise_yaml_value(inputs.rnx_path)
+        rnx_path = Path(inputs.rnx_path)
+        rnx_directory = str(rnx_path.parent)
+        rnx_filename = rnx_path.name
+
+        # Set gnss_observations_root to the directory containing the RINEX file
+
+        self.edit_config("inputs.gnss_observations.gnss_observations_root", rnx_directory, False)
+
+
+        # Use only the filename (relative path) for rnx_inputs
+
+        rnx_val = normalise_yaml_value(rnx_filename)
 
         # 1a. Set rnx_inputs safely, preserving formatting
         try:

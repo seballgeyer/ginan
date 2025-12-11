@@ -65,6 +65,8 @@ jobs:
           --add-data "scripts/GinanUI/app:app" \
           --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
+          --collect-all numpy \
+          --collect-all pandas \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
           --hidden-import PySide6.QtWebEngineCore \
@@ -227,6 +229,8 @@ jobs:
           --add-data "scripts/GinanUI/app:app" \
             --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
+          --collect-all numpy \
+          --collect-all pandas \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
           --hidden-import PySide6.QtWebEngineCore \

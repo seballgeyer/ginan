@@ -8,9 +8,8 @@ from PyInstaller.utils.hooks import (
     collect_data_files,
 )
 
-# Resolve repo root relative to this spec file
-SPEC_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SPEC_DIR, "..", "..", ".."))
+# Resolve repo root from the current working directory (workflow invokes from repo root)
+REPO_ROOT = os.path.abspath(os.getcwd())
 APP_DIR = os.path.join(REPO_ROOT, "scripts", "GinanUI")
 PYI_HOOK = os.path.join(APP_DIR, "pyinstaller", "qtwebengine_runtime_hook.py")
 

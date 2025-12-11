@@ -82,8 +82,8 @@ jobs:
       - name: Build GUI with PyInstaller (spec)
         run: |
           set -e
-          TARGET_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
-          python -m PyInstaller --clean --noconfirm --onedir --target-arch "$TARGET_ARCH" scripts/GinanUI/GinanUI.spec
+          # Build from the spec; onedir/arch are defined by the spec and runner
+          python -m PyInstaller --clean --noconfirm scripts/GinanUI/GinanUI.spec
 
       - name: Ensure QtWebEngineProcess (fallback copy if missing)
         run: |

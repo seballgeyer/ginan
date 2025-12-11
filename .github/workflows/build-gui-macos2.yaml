@@ -58,11 +58,18 @@ jobs:
           import os, sys
           base = getattr(sys, '_MEIPASS', None)
           if base:
-              qt_base = os.path.join(base, 'PySide6', 'Qt')
-              res = os.path.join(qt_base, 'resources')
-              os.environ.setdefault('QTWEBENGINE_RESOURCES_PATH', res)
-              loc = os.path.join(res, 'qtwebengine_locales')
-              os.environ.setdefault('QTWEBENGINE_LOCALES_PATH', loc)
+            qt_base = os.path.join(base, 'PySide6', 'Qt')
+            # Try multiple resource locations as PySide6 layout varies
+            candidates = [
+              os.path.join(qt_base, 'resources'),
+              os.path.join(qt_base, 'lib', 'QtWebEngineCore.framework', 'Resources'),
+            ]
+            for res in candidates:
+              if os.path.isdir(res):
+                os.environ.setdefault('QTWEBENGINE_RESOURCES_PATH', res)
+                loc = os.path.join(res, 'qtwebengine_locales')
+                os.environ.setdefault('QTWEBENGINE_LOCALES_PATH', loc)
+                break
               exe_dir = os.path.dirname(sys.executable)
               helper = os.path.join(exe_dir, 'Helpers', 'QtWebEngineProcess.app', 'Contents', 'MacOS', 'QtWebEngineProcess')
               os.environ.setdefault('QTWEBENGINEPROCESS_PATH', helper)
@@ -133,6 +140,34 @@ jobs:
             fi
           fi
 
+      - name: Copy Qt WebEngine resources (fallback)
+        run: |
+          set -e
+          RES_DEST="dist/GinanUI/_internal/PySide6/Qt/resources"
+          mkdir -p "$RES_DEST"
+          PYSIDE_DIR=$(python -c 'import PySide6, os; print(os.path.dirname(PySide6.__file__))')
+          QT_DIR="$PYSIDE_DIR/Qt"
+          RES_SRC1="$QT_DIR/resources"
+          RES_SRC2="$QT_DIR/lib/QtWebEngineCore.framework/Resources"
+          copied=false
+          if [ -d "$RES_SRC1" ]; then
+            cp -R "$RES_SRC1"/* "$RES_DEST"/ || true
+            copied=true
+          fi
+          if [ -d "$RES_SRC2" ]; then
+            cp -R "$RES_SRC2"/*.pak "$RES_DEST"/ || true
+            cp -R "$RES_SRC2"/*.dat "$RES_DEST"/ || true
+            [ -f "$RES_SRC2/v8_context_snapshot.bin" ] && cp "$RES_SRC2/v8_context_snapshot.bin" "$RES_DEST"/ || true
+            [ -f "$RES_SRC2/snapshot_blob.bin" ] && cp "$RES_SRC2/snapshot_blob.bin" "$RES_DEST"/ || true
+            if [ -d "$RES_SRC2/qtwebengine_locales" ]; then
+              cp -R "$RES_SRC2/qtwebengine_locales" "$RES_DEST"/
+            fi
+            copied=true
+          fi
+          if [ "$copied" != true ]; then
+            echo "Qt WebEngine resources not found via fallback copy";
+          fi
+
       - name: Add rpath to QtWebEngineProcess for bundled Qt
         run: |
           set -e
@@ -147,6 +182,7 @@ jobs:
           echo "--- PySide6 Qt Resources in dist ---"
           ls -al dist/GinanUI/_internal/PySide6/Qt/ || true
           ls -al dist/GinanUI/_internal/PySide6/Qt/resources || true
+          ls -al dist/GinanUI/_internal/PySide6/Qt/lib/QtWebEngineCore.framework/Resources || true
           ls -al dist/GinanUI/_internal/PySide6/Qt/resources/qtwebengine_locales || true
           echo "--- Helpers ---"
           ls -al dist/GinanUI/Helpers/QtWebEngineProcess.app/Contents/MacOS || true

@@ -79,53 +79,11 @@ jobs:
               os.environ.setdefault('QT_LOGGING_RULES', 'qt.webengine.*=false')
           PY
 
-      - name: Build GUI with PyInstaller
+      - name: Build GUI with PyInstaller (spec)
         run: |
           set -e
           TARGET_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
-          python -m PyInstaller \
-            --name GinanUI \
-            --onedir \
-            --clean \
-            --noconfirm \
-            --target-arch "$TARGET_ARCH" \
-            --add-data "scripts/GinanUI/app:app" \
-            --add-data "scripts/plot_pos.py:scripts" \
-            --add-binary "bin/*:bin" \
-            --collect-submodules numpy \
-            --collect-submodules pandas \
-            --copy-metadata numpy \
-            --copy-metadata pandas \
-            --collect-all scipy \
-            --collect-all statsmodels \
-            --copy-metadata scipy \
-            --copy-metadata statsmodels \
-            --collect-all PySide6.QtWebEngineCore \
-            --collect-all PySide6.QtWebEngineWidgets \
-            --collect-submodules PySide6 \
-            --hidden-import PySide6 \
-            --hidden-import PySide6.QtWebEngineWidgets \
-            --hidden-import PySide6.QtWebEngineCore \
-            --hidden-import scipy._cyutility \
-            --hidden-import scipy.linalg._cythonized_array_utils \
-            --hidden-import plotly \
-            --hidden-import scripts.plot_pos \
-            --hidden-import scripts.GinanUI.app \
-            --hidden-import scripts.GinanUI.app.models \
-            --hidden-import scripts.GinanUI.app.models.execution \
-            --hidden-import scripts.GinanUI.app.controllers \
-            --hidden-import scripts.GinanUI.app.controllers.input_controller \
-            --hidden-import scripts.GinanUI.app.controllers.visualisation_controller \
-            --hidden-import scripts.GinanUI.app.utils \
-            --hidden-import scripts.GinanUI.app.utils.workers \
-            --hidden-import scripts.GinanUI.app.utils.cddis_credentials \
-            --hidden-import scripts.GinanUI.app.utils.cddis_email \
-            --hidden-import scripts.GinanUI.app.utils.common_dirs \
-            --hidden-import scripts.GinanUI.app.utils.gn_functions \
-            --hidden-import scripts.GinanUI.app.utils.yaml \
-            --hidden-import scripts.GinanUI.app.views.main_window_ui \
-            --runtime-hook scripts/GinanUI/_pyi_hooks/qtwebengine_runtime_hook.py \
-            scripts/GinanUI/main.py
+          python -m PyInstaller --clean --noconfirm --onedir --target-arch "$TARGET_ARCH" scripts/GinanUI/GinanUI.spec
 
       - name: Ensure QtWebEngineProcess (fallback copy if missing)
         run: |

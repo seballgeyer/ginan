@@ -89,9 +89,10 @@ jobs:
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ginan-gui-linux-x64
-        path: dist/GinanUI/
+        name: ginan-gui-macos-arm64
+        path: dist/GinanUI.app
         retention-days: 30
+        overwrite: true
 
 
   build-gui-macos-x64:
@@ -171,6 +172,7 @@ jobs:
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ginan-gui-linux-x64
-        path: dist/GinanUI/
+        name: ginan-gui-macos-x64
+        path: dist/GinanUI.app
         retention-days: 30
+        overwrite: true

@@ -59,14 +59,11 @@ jobs:
      
     - name: Build GUI with PyInstaller
       run: |
-        python -m PyInstaller --name GinanUI \
-          --onedir \
-          --clean \
+        pyinstaller --name GinanUI \
+          --windowed \
           --add-data "scripts/GinanUI/app:app" \
           --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
-          --collect-all numpy \
-          --collect-all pandas \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
           --hidden-import PySide6.QtWebEngineCore \
@@ -87,94 +84,15 @@ jobs:
           --hidden-import scripts.GinanUI.app.utils.yaml \
           --hidden-import scripts.GinanUI.app.views.main_window_ui \
           --collect-all scripts.GinanUI \
-          --collect-submodules PySide6 \
-          --target-arch arm64 \
-          --noconfirm \
           scripts/GinanUI/main.py
-
-    - name: Copy Qt WebEngine resources (.pak + locales)
-      run: |
-        set -e
-        PYSIDE_DIR=$(python -c 'import PySide6, os; print(os.path.dirname(PySide6.__file__))')
-        QT_DIR="$PYSIDE_DIR/Qt"
-        RES_SRC1="$QT_DIR/resources"
-        RES_SRC2="$QT_DIR/lib/QtWebEngineCore.framework/Resources"
-        RES_DEST="dist/GinanUI/_internal/PySide6/Qt/resources"
-        mkdir -p "$RES_DEST"
-        copied=false
-        if [ -d "$RES_SRC1" ]; then
-          cp -R "$RES_SRC1"/* "$RES_DEST"/
-          copied=true
-        fi
-        if [ -d "$RES_SRC2" ]; then
-          cp -R "$RES_SRC2"/*.pak "$RES_DEST"/ || true
-          cp -R "$RES_SRC2"/*.dat "$RES_DEST"/ || true
-          # V8 snapshot files (name varies by Qt/Chromium version)
-          [ -f "$RES_SRC2/v8_context_snapshot.bin" ] && cp "$RES_SRC2/v8_context_snapshot.bin" "$RES_DEST"/ || true
-          [ -f "$RES_SRC2/snapshot_blob.bin" ] && cp "$RES_SRC2/snapshot_blob.bin" "$RES_DEST"/ || true
-          if [ -d "$RES_SRC2/qtwebengine_locales" ]; then
-            cp -R "$RES_SRC2/qtwebengine_locales" "$RES_DEST"/
-          fi
-          copied=true
-        fi
-        if [ "$copied" != true ]; then
-          echo "Qt WebEngine resources not found; build may fail";
-        fi
-
-    - name: Create launcher script (run.sh)
-      run: |
-        cat > dist/GinanUI/run.sh << 'EOF'
-        #!/usr/bin/env zsh
-        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-        export QTWEBENGINEPROCESS_PATH="$SCRIPT_DIR/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
-        export QTWEBENGINE_RESOURCES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources"
-        export QTWEBENGINE_LOCALES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources/qtwebengine_locales"
-        # Workaround macOS sandbox policy errors in QtWebEngine
-        export QTWEBENGINE_DISABLE_SANDBOX=1
-        export QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox"
-        # Ensure Qt frameworks are discoverable for QtWebEngineProcess
-        export DYLD_FRAMEWORK_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
-        export DYLD_LIBRARY_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
-        if command -v xattr >/dev/null 2>&1; then
-          xattr -dr com.apple.quarantine "$SCRIPT_DIR" 2>/dev/null || true
-        fi
-        exec "$SCRIPT_DIR/GinanUI"
-        EOF
-        chmod +x dist/GinanUI/run.sh
-    
-    - name: Copy QtWebEngineProcess
-      run: |
-        # Find and copy QtWebEngineProcess to where Qt expects it
-        PYSIDE_PATH=$(python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
-        # Create Helpers directory structure
-        mkdir -p dist/GinanUI/Helpers
-        # Copy QtWebEngineProcess from PySide6 installation
-        if [ -d "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" ]; then
-          cp -R "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" dist/GinanUI/Helpers/
-        elif [ -d "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" ]; then
-          cp -R "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" dist/GinanUI/Helpers/
-        fi
-    
-    - name: Code sign binaries (ad-hoc)
-      working-directory: dist/GinanUI
-      run: |
-        # Ad-hoc sign all executables and libraries to avoid Gatekeeper issues
-        find . -type f -perm +111 -exec codesign --force --deep -s - {} \;
-        find . -name "*.dylib" -exec codesign --force -s - {} \;
-        find . -name "*.so" -exec codesign --force -s - {} \;
-        # Sign the Python shared library specifically
-        codesign --force -s - _internal/Python || true
-        # Sign QtWebEngineProcess
-        codesign --force --deep -s - Helpers/QtWebEngineProcess.app || true
-        # Sign resources .pak if required
-        find _internal/PySide6/Qt/resources -type f -name "*.pak" -exec codesign --force --sign - {} \; || true
     
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ginan-gui-macos-arm64
+        name: ginan-gui-linux-x64
         path: dist/GinanUI/
         retention-days: 30
+
 
   build-gui-macos-x64:
     runs-on: macos-15-intel
@@ -223,14 +141,11 @@ jobs:
     
     - name: Build GUI with PyInstaller
       run: |
-        python -m PyInstaller --name GinanUI \
-          --onedir \
-          --clean \
+        pyinstaller --name GinanUI \
+          --windowed \
           --add-data "scripts/GinanUI/app:app" \
-            --add-data "scripts/plot_pos.py:scripts" \
+          --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
-          --collect-all numpy \
-          --collect-all pandas \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
           --hidden-import PySide6.QtWebEngineCore \
@@ -251,91 +166,11 @@ jobs:
           --hidden-import scripts.GinanUI.app.utils.yaml \
           --hidden-import scripts.GinanUI.app.views.main_window_ui \
           --collect-all scripts.GinanUI \
-          --collect-submodules PySide6 \
-          --target-arch x86_64 \
-          --noconfirm \
           scripts/GinanUI/main.py
-
-    - name: Copy Qt WebEngine resources (.pak + locales)
-      run: |
-        set -e
-        PYSIDE_DIR=$(python -c 'import PySide6, os; print(os.path.dirname(PySide6.__file__))')
-        QT_DIR="$PYSIDE_DIR/Qt"
-        RES_SRC1="$QT_DIR/resources"
-        RES_SRC2="$QT_DIR/lib/QtWebEngineCore.framework/Resources"
-        RES_DEST="dist/GinanUI/_internal/PySide6/Qt/resources"
-        mkdir -p "$RES_DEST"
-        copied=false
-        if [ -d "$RES_SRC1" ]; then
-          cp -R "$RES_SRC1"/* "$RES_DEST"/
-          copied=true
-        fi
-        if [ -d "$RES_SRC2" ]; then
-          cp -R "$RES_SRC2"/*.pak "$RES_DEST"/ || true
-          cp -R "$RES_SRC2"/*.dat "$RES_DEST"/ || true
-          # V8 snapshot files (name varies by Qt/Chromium version)
-          [ -f "$RES_SRC2/v8_context_snapshot.bin" ] && cp "$RES_SRC2/v8_context_snapshot.bin" "$RES_DEST"/ || true
-          [ -f "$RES_SRC2/snapshot_blob.bin" ] && cp "$RES_SRC2/snapshot_blob.bin" "$RES_DEST"/ || true
-          if [ -d "$RES_SRC2/qtwebengine_locales" ]; then
-            cp -R "$RES_SRC2/qtwebengine_locales" "$RES_DEST"/
-          fi
-          copied=true
-        fi
-        if [ "$copied" != true ]; then
-          echo "Qt WebEngine resources not found; build may fail";
-        fi
-
-    - name: Create launcher script (run.sh)
-      run: |
-        cat > dist/GinanUI/run.sh << 'EOF'
-        #!/usr/bin/env zsh
-        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-        export QTWEBENGINEPROCESS_PATH="$SCRIPT_DIR/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
-        export QTWEBENGINE_RESOURCES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources"
-        export QTWEBENGINE_LOCALES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources/qtwebengine_locales"
-        # Workaround macOS sandbox policy errors in QtWebEngine and reduce logs
-        export QTWEBENGINE_DISABLE_SANDBOX=1
-        export QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox --disable-gpu-sandbox --disable-seccomp-filter-sandbox --disable-logging --log-level=3"
-        # Help QtWebEngineProcess resolve Qt frameworks
-        export DYLD_FRAMEWORK_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
-        export DYLD_LIBRARY_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
-        if command -v xattr >/dev/null 2>&1; then
-          xattr -dr com.apple.quarantine "$SCRIPT_DIR" 2>/dev/null || true
-        fi
-        exec "$SCRIPT_DIR/GinanUI"
-        EOF
-        chmod +x dist/GinanUI/run.sh
-    
-    - name: Copy QtWebEngineProcess
-      run: |
-        # Find and copy QtWebEngineProcess to where Qt expects it
-        PYSIDE_PATH=$(python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
-        # Create Helpers directory structure
-        mkdir -p dist/GinanUI/Helpers
-        # Copy QtWebEngineProcess from PySide6 installation
-        if [ -d "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" ]; then
-          cp -R "$PYSIDE_PATH/Qt/libexec/QtWebEngineProcess.app" dist/GinanUI/Helpers/
-        elif [ -d "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" ]; then
-          cp -R "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" dist/GinanUI/Helpers/
-        fi
-    
-    - name: Code sign binaries (ad-hoc)
-      working-directory: dist/GinanUI
-      run: |
-        # Ad-hoc sign all executables and libraries to avoid Gatekeeper issues
-        find . -type f -perm +111 -exec codesign --force --deep -s - {} \;
-        find . -name "*.dylib" -exec codesign --force -s - {} \;
-        find . -name "*.so" -exec codesign --force -s - {} \;
-        # Sign the Python shared library specifically
-        codesign --force -s - _internal/Python || true
-        # Sign QtWebEngineProcess
-        codesign --force --deep -s - Helpers/QtWebEngineProcess.app || true
-        # Sign resources .pak if required
-        find _internal/PySide6/Qt/resources -type f -name "*.pak" -exec codesign --force --sign - {} \; || true
     
     - name: Upload GUI artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ginan-gui-macos-x64
+        name: ginan-gui-linux-x64
         path: dist/GinanUI/
         retention-days: 30

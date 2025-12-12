@@ -131,6 +131,10 @@ jobs:
               PY
               )
             if [ -z "$QT_DIR" ] || [ ! -d "$QT_DIR" ]; then
+                # Final fallback: copy from .app bundle if present
+                APP_HELPER="dist/GinanUI.app/Contents/Helpers/QtWebEngineProcess.app"
+                if [ -d "$APP_HELPER" ]; then
+                  cp -R "$APP_HELPER" "$FOLDER/Helpers/"
               echo "PySide6 Qt directory not found in _internal or site-packages";
               QT_DIR=""
             fi
@@ -187,6 +191,11 @@ jobs:
           du -sh "$APP/Contents/Frameworks" || true
           du -sh "$APP/Contents/Resources" || true
           du -sh "$APP/Contents/MacOS" || true
+            # Final fallback: copy from .app bundle if present
+            APP_HELPER="dist/GinanUI.app/Contents/Helpers/QtWebEngineProcess.app"
+            if [ -d "$APP_HELPER" ]; then
+              cp -R "$APP_HELPER" "$FOLDER/Helpers/"
+            fi
       - name: Strip dSYM and reduce size
         run: |
           set -e
@@ -368,6 +377,77 @@ jobs:
           find dist -type d -name "*.dSYM" -prune -exec rm -rf {} + || true
           find dist -type f -name "*.pyc" -delete || true
           find dist -type d -name "__pycache__" -prune -exec rm -rf {} + || true
+      - name: Prepare folder distribution (x64)
+        run: |
+          set -e
+          FOLDER="dist/GinanUI"
+          INTERNAL_QT="$FOLDER/_internal/PySide6/Qt"
+          mkdir -p "$FOLDER/Helpers"
+          mkdir -p "$FOLDER/_internal/PySide6/Qt/resources"
+          # Helper from internal Qt if present, else from site-packages
+          if [ -d "$INTERNAL_QT/libexec/QtWebEngineProcess.app" ]; then
+            cp -R "$INTERNAL_QT/libexec/QtWebEngineProcess.app" "$FOLDER/Helpers/"
+          elif [ -d "$INTERNAL_QT/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" ]; then
+            cp -R "$INTERNAL_QT/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" "$FOLDER/Helpers/"
+          else
+            PYSIDE_DIR=$(python - <<'PY'
+            import os
+            try:
+                import PySide6
+                print(os.path.dirname(PySide6.__file__))
+            except Exception:
+                print('')
+            PY
+            )
+            if [ -n "$PYSIDE_DIR" ]; then
+              QT_DIR="$PYSIDE_DIR/Qt"
+              if [ -d "$QT_DIR/libexec/QtWebEngineProcess.app" ]; then
+                cp -R "$QT_DIR/libexec/QtWebEngineProcess.app" "$FOLDER/Helpers/"
+              elif [ -d "$QT_DIR/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" ]; then
+                cp -R "$QT_DIR/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" "$FOLDER/Helpers/"
+              fi
+            fi
+          fi
+          # Resources
+          RES1="$INTERNAL_QT/resources"; RES2="$INTERNAL_QT/lib/QtWebEngineCore.framework/Resources"
+          if [ -d "$RES2" ]; then
+            cp -R "$RES2"/*.pak "$FOLDER/_internal/PySide6/Qt/resources"/ || true
+            cp -R "$RES2"/*.dat "$FOLDER/_internal/PySide6/Qt/resources"/ || true
+            [ -f "$RES2/v8_context_snapshot.bin" ] && cp "$RES2/v8_context_snapshot.bin" "$FOLDER/_internal/PySide6/Qt/resources"/ || true
+            [ -f "$RES2/snapshot_blob.bin" ] && cp "$RES2/snapshot_blob.bin" "$FOLDER/_internal/PySide6/Qt/resources"/ || true
+            if [ -d "$RES2/qtwebengine_locales" ]; then
+              rm -rf "$FOLDER/_internal/PySide6/Qt/resources/qtwebengine_locales" || true
+              cp -R "$RES2/qtwebengine_locales" "$FOLDER/_internal/PySide6/Qt/resources"/
+            fi
+          fi
+          if [ -d "$RES1" ]; then
+            cp -R "$RES1"/*.pak "$FOLDER/_internal/PySide6/Qt/resources"/ 2>/dev/null || true
+            cp -R "$RES1"/*.dat "$FOLDER/_internal/PySide6/Qt/resources"/ 2>/dev/null || true
+            [ -f "$RES1/v8_context_snapshot.bin" ] && cp "$RES1/v8_context_snapshot.bin" "$FOLDER/_internal/PySide6/Qt/resources"/ || true
+            [ -f "$RES1/snapshot_blob.bin" ] && cp "$RES1/snapshot_blob.bin" "$FOLDER/_internal/PySide6/Qt/resources"/ || true
+            if [ -d "$RES1/qtwebengine_locales" ]; then
+              rm -rf "$FOLDER/_internal/PySide6/Qt/resources/qtwebengine_locales" || true
+              cp -R "$RES1/qtwebengine_locales" "$FOLDER/_internal/PySide6/Qt/resources"/
+            fi
+          fi
+          # Folder launcher
+          cat > "$FOLDER/run.sh" << 'EOF'
+          #!/usr/bin/env zsh
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+          export QTWEBENGINEPROCESS_PATH="$SCRIPT_DIR/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
+          export QTWEBENGINE_RESOURCES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources"
+          export QTWEBENGINE_LOCALES_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/resources/qtwebengine_locales"
+          export QTWEBENGINE_DISABLE_SANDBOX=1
+          export QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox --disable-gpu-sandbox --disable-seccomp-filter-sandbox --disable-logging --log-level=3"
+          export QT_LOGGING_RULES="qt.webengine.*=false"
+          export DYLD_FRAMEWORK_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
+          export DYLD_LIBRARY_PATH="$SCRIPT_DIR/_internal/PySide6/Qt/lib"
+          if command -v xattr >/dev/null 2>&1; then
+            xattr -dr com.apple.quarantine "$SCRIPT_DIR" 2>/dev/null || true
+          fi
+          exec "$SCRIPT_DIR/GinanUI"
+          EOF
+          chmod +x "$FOLDER/run.sh" || true
       - name: Upload GUI artifact (x64)
         uses: actions/upload-artifact@v4
         with:

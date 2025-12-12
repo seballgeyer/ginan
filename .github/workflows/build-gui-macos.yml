@@ -117,12 +117,24 @@ jobs:
         run: |
           set -e
           APP="dist/GinanUI.app"
-          PYSIDE_DIR=$(python - <<'PY'
-          import PySide6, os
-          print(os.path.dirname(PySide6.__file__))
-          PY
-          )
-          QT_DIR="$PYSIDE_DIR/Qt"
+          INTERNAL_QT="dist/GinanUI/_internal/PySide6/Qt"
+          if [ -d "$INTERNAL_QT" ]; then
+            QT_DIR="$INTERNAL_QT"
+          else
+              QT_DIR=$(python - <<'PY'
+              import os
+              try:
+                import PySide6
+                print(os.path.join(os.path.dirname(PySide6.__file__), 'Qt'))
+              except Exception:
+                print('')
+              PY
+              )
+            if [ -z "$QT_DIR" ] || [ ! -d "$QT_DIR" ]; then
+              echo "PySide6 Qt directory not found in _internal or site-packages";
+              QT_DIR=""
+            fi
+          fi
           mkdir -p "$APP/Contents/Helpers"
           if [ -d "$QT_DIR/libexec/QtWebEngineProcess.app" ]; then
             cp -R "$QT_DIR/libexec/QtWebEngineProcess.app" "$APP/Contents/Helpers/"
@@ -286,12 +298,24 @@ jobs:
         run: |
           set -e
           APP="dist/GinanUI.app"
-          PYSIDE_DIR=$(python - <<'PY'
-          import PySide6, os
-          print(os.path.dirname(PySide6.__file__))
-          PY
-          )
-          QT_DIR="$PYSIDE_DIR/Qt"
+          INTERNAL_QT="dist/GinanUI/_internal/PySide6/Qt"
+          if [ -d "$INTERNAL_QT" ]; then
+            QT_DIR="$INTERNAL_QT"
+          else
+              QT_DIR=$(python - <<'PY'
+              import os
+              try:
+                import PySide6
+                print(os.path.join(os.path.dirname(PySide6.__file__), 'Qt'))
+              except Exception:
+                print('')
+              PY
+              )
+            if [ -z "$QT_DIR" ] || [ ! -d "$QT_DIR" ]; then
+              echo "PySide6 Qt directory not found in _internal or site-packages";
+              QT_DIR=""
+            fi
+          fi
           mkdir -p "$APP/Contents/Helpers"
           if [ -d "$QT_DIR/libexec/QtWebEngineProcess.app" ]; then
             cp -R "$QT_DIR/libexec/QtWebEngineProcess.app" "$APP/Contents/Helpers/"

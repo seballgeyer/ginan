@@ -155,7 +155,7 @@ bool prange(
         {
             BOOST_LOG_TRIVIAL(warning)
                 << "Code measurement not available on secondary frequency for " << obs.Sat.id()
-                << ", falling back to single-frequency";
+                << " at " << obs.mount << ", falling back to single-frequency";
 
             ionoMode = E_IonoMode::BROADCAST;
         }
@@ -485,7 +485,11 @@ E_Solution estpos(
 
         for (auto& obs : only<GObs>(obsList))
         {
+            // Reset valid and failure flags that may be updated across iterations
             obs.sppValid = false;
+            obs.failureGeodist = false;
+            obs.failureElevation = false;
+            obs.failurePrange = false;
 
             std::stringstream traceBuffer;
             traceBuffer << "\nSPP meas: sat=" << obs.Sat.id().c_str();
@@ -765,7 +769,7 @@ E_Solution estpos(
 
             tracepdeex(3, trace, "\nLack of valid measurements, END OF SPP LSQ");
 
-            return E_Solution::NONE;
+            return E_Solution::FAILED;
         }
 
         // Least squares estimation
@@ -774,7 +778,7 @@ E_Solution estpos(
         if (pass == false)
         {
             tracepdeex(4, trace, "\n%s\tSPP failed due to LSQ failure", tsync.to_string().c_str());
-            return E_Solution::NONE;
+            return E_Solution::FAILED;
         }
 
         if (traceLevel >= 4)
@@ -1088,6 +1092,10 @@ bool raim(
                 return true;
             }
         }
+        else
+        {
+            break;  // No observation excluded, stop iterating as testList hasn't changed
+        }
     }
 
     // Restore original satStats if fails
@@ -1169,9 +1177,24 @@ void spp(
     {
         // Receiver Autonomous Integrity Monitoring
         if (acsConfig.sppOpts.raim.enable &&
-            sol.status != E_Solution::NONE  // Meaningless to perform RAIM for NONE solution
-            && sppState.dof >= 2)
+            sol.status != E_Solution::NONE)  // Meaningless to perform RAIM for NONE solution
         {
+            int numMeas = 0;
+            for (auto& obs : only<GObs>(obsList))
+            {
+                obs.excludeOutlier = false;  // Clear outlier flags from SPP and let RAIM do the exclusion
+
+                if (obs.exclude)
+                {
+                    continue;
+                }
+
+                numMeas++;
+            }
+
+            sppState.dof = numMeas - (sppState.x.rows() - 1);
+            sppState.chi2PerDof = INFINITY;
+
             bool pass = raim(trace, obsList, sol, id, kfState_ptr);
 
             if (pass && traceLevel >= 4)
@@ -1186,11 +1209,9 @@ void spp(
 
     if (sol.status != E_Solution::SINGLE && sol.status != E_Solution::SINGLE_X)
     {
-        BOOST_LOG_TRIVIAL(warning)
-            << "SPP failed for " << id << " at " << tsync << ", excluding all observations";
-        trace << "\n"
-              << tsync << "\tSPP failed for " << id << " with " << sol.numMeas
-              << " measurements, excluding all observations";
+        string stringBuffer = acsConfig.exclude.bad_spp ? ", excluding all observations" : "";
+        BOOST_LOG_TRIVIAL(warning) << "SPP failed for " << id << " at " << tsync << stringBuffer;
+        trace << "\n" << tsync << "\tSPP failed for " << id << stringBuffer;
     }
 
     // Set observations that were valid
@@ -1208,22 +1229,12 @@ void spp(
             continue;
         }
 
-        if (obs.failureNoPseudorange || obs.failurePrange)
+        if (obs.failureElevation)  // Don't exclude low elevation obs here as PPP may use a different elevation mask
         {
-            obs.excludeBadRange = true;
+            continue;
         }
-        else if (obs.failureNoSatPos || obs.failureNoSatClock)
-        {
-            obs.excludeSVH = true;
-        }
-        else if (obs.failureElevation)
-        {
-            obs.excludeElevation = true;
-        }
-        else
-        {
-            obs.excludeBadSPP = true;
-        }
+
+        obs.excludeBadSPP = true;
     }
 
     if (sol.status == E_Solution::NONE)

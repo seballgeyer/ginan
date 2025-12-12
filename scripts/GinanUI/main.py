@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 
@@ -11,6 +12,9 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
+    # Disable GPU acceleration (can cause segmentation faults on launch if enabled)
+    os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-gpu --disable-software-rasterizer --no-sandbox'
+
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon("app/resources/ginan-logo.png"))
     window = MainWindow()

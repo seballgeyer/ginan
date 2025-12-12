@@ -1,0 +1,93 @@
+name: Build GUI Windows
+
+on:
+  workflow_run:
+    workflows: ["Build Windows (Cross-Compile)"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  build-gui-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Check workflow run conclusion
+      if: ${{ github.event.workflow_run.conclusion != 'success' }}
+      run: |
+        echo "Core build workflow failed or was cancelled"
+        exit 1
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Download Windows binaries
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        name: ginan-windows-x64
+        path: bin/
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        workflow: build-windows.yml
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+    
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r scripts/GinanUI/requirements.txt
+        pip install pyinstaller
+    
+    - name: Convert UI files to Python
+      working-directory: scripts/GinanUI
+      shell: pwsh
+      run: |
+        pyside6-uic app/views/main_window.ui -o app/views/main_window_ui.py
+        # Fix import path in generated file
+        (Get-Content app/views/main_window_ui.py) | ForEach-Object {
+          if ($_.ReadCount -eq 23) {
+            "from scripts.GinanUI.app.resources import ginan_logo_rc"
+          } else {
+            $_
+          }
+        } | Set-Content app/views/main_window_ui.py
+    
+    - name: Build GUI with PyInstaller
+      run: |
+        pyinstaller --name GinanUI `
+          --windowed `
+          --add-data "scripts/GinanUI/app;app" `
+          --add-data "scripts/plot_pos.py;scripts" `
+          --add-binary "bin/*;bin" `
+          --hidden-import PySide6 `
+          --hidden-import PySide6.QtWebEngineWidgets `
+          --hidden-import PySide6.QtWebEngineCore `
+          --hidden-import plotly `
+          --hidden-import scripts.plot_pos `
+          --hidden-import scripts.GinanUI.app `
+          --hidden-import scripts.GinanUI.app.models `
+          --hidden-import scripts.GinanUI.app.models.execution `
+          --hidden-import scripts.GinanUI.app.controllers `
+          --hidden-import scripts.GinanUI.app.controllers.input_controller `
+          --hidden-import scripts.GinanUI.app.controllers.visualisation_controller `
+          --hidden-import scripts.GinanUI.app.utils `
+          --hidden-import scripts.GinanUI.app.utils.workers `
+          --hidden-import scripts.GinanUI.app.utils.cddis_credentials `
+          --hidden-import scripts.GinanUI.app.utils.cddis_email `
+          --hidden-import scripts.GinanUI.app.utils.common_dirs `
+          --hidden-import scripts.GinanUI.app.utils.gn_functions `
+          --hidden-import scripts.GinanUI.app.utils.yaml `
+          --hidden-import scripts.GinanUI.app.views.main_window_ui `
+          --collect-all scripts.GinanUI `
+          scripts/GinanUI/main.py
+    
+    - name: Upload GUI artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-gui-windows-x64
+        path: dist/GinanUI/
+        retention-days: 30

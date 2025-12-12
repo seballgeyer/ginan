@@ -1,12 +1,13 @@
 # app/utils/archive_manager.py
 
-import logging
 from pathlib import Path
 import shutil
 from datetime import datetime
 from typing import Optional, Dict, Any
 
 from scripts.GinanUI.app.utils.common_dirs import INPUT_PRODUCTS_PATH
+
+from scripts.GinanUI.app.utils.logger import Logger
 
 
 def archive_old_outputs(output_dir: Path, visual_dir: Path = None):
@@ -39,9 +40,9 @@ def archive_old_outputs(output_dir: Path, visual_dir: Path = None):
             moved_files += 1
 
     if moved_files > 0:
-        print(f"📦 Archived {moved_files} old output file(s) to: {archive_dir}")
+        Logger.console(f"📦 Archived {moved_files} old output file(s) to: {archive_dir}")
     else:
-        print("📂 No previous outputs found to archive.")
+        Logger.console("📂 No previous outputs found to archive.")
 
 def archive_products(products_dir: Path = INPUT_PRODUCTS_PATH, reason: str = "manual", startup_archival: bool = False,
                      include_patterns: Optional[list[str]] = None) -> Optional[Path]:
@@ -56,7 +57,7 @@ def archive_products(products_dir: Path = INPUT_PRODUCTS_PATH, reason: str = "ma
     :return: Path to the archive folder if files were archived, else None
     """
     if not products_dir.exists():
-        logging.warning(f"[Archiver] Products dir {products_dir} does not exist.")
+        Logger.console(f"Products dir {products_dir} does not exist.")
         return None
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -99,7 +100,7 @@ def archive_products(products_dir: Path = INPUT_PRODUCTS_PATH, reason: str = "ma
             for file in products_dir.glob(pattern):
                 creation_time = datetime.fromtimestamp(file.stat().st_ctime)
                 if (datetime.now() - creation_time).days > 7:
-                    logging.info(f"[Archiver] Startup archival: {file.name} is older than 7 days, archiving.")
+                    Logger.console(f"Startup archival: {file.name} is older than 7 days, archiving.")
                     product_patterns.append(pattern)
 
     # Include explicit patterns if provided
@@ -114,13 +115,13 @@ def archive_products(products_dir: Path = INPUT_PRODUCTS_PATH, reason: str = "ma
                 shutil.move(str(file), str(target))
                 archived_files.append(file.name)
             except Exception as e:
-                logging.warning(f"[Archiver] Failed to archive {file.name}: {e}")
+                Logger.console(f"Failed to archive {file.name}: {e}")
 
     if archived_files:
-        logging.info(f"[Archiver] Archived {', '.join(archived_files)} → {archive_dir}")
+        Logger.console(f"Archived {', '.join(archived_files)} → {archive_dir}")
         return archive_dir
     else:
-        logging.info("[Archiver] No matching product files found to archive.")
+        Logger.console("No matching product files found to archive.")
         return None
 
 
@@ -131,10 +132,10 @@ def archive_products_if_rinex_changed(current_rinex: Path,
     If the RINEX file has changed since last load, archive the cached products.
     """
     if last_rinex and current_rinex.resolve() == last_rinex.resolve():
-        logging.info("[Archiver] RINEX file unchanged — skipping product cleanup.")
+        Logger.console("RINEX file unchanged — skipping product cleanup.")
         return None
 
-    logging.info("[Archiver] RINEX file changed — archiving old products.")
+    Logger.console("RINEX file changed — archiving old products.")
     # Shouldn't remove BRDC if date isn't changed but would require extracting current and last rnx
     return archive_products(products_dir, reason="rinex_change", include_patterns=["BRDC*.rnx*"])
 
@@ -147,14 +148,14 @@ def archive_products_if_selection_changed(current_selection: Dict[str, Any],
     Excludes BRDC and finals.data.iau2000.txt since they are reusable.
     """
     if last_selection and current_selection == last_selection:
-        logging.info("[Archiver] PPP product selection unchanged — skipping product cleanup.")
+        Logger.console("[Archiver] PPP product selection unchanged — skipping product cleanup.")
         return None
 
     if last_selection:
         diffs = {k: (last_selection.get(k), current_selection.get(k))
                  for k in set(last_selection) | set(current_selection)
                  if last_selection.get(k) != current_selection.get(k)}
-        logging.info(f"[Archiver] PPP selection changed → differences: {diffs}")
+        Logger.console(f"[Archiver] PPP selection changed → differences: {diffs}")
 
     return archive_products(products_dir,reason="ppp_selection_change")
 

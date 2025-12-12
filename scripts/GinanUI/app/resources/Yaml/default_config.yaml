@@ -94,6 +94,26 @@ receiver_options:
             ionospheric_components:
                 use_2nd_order:  true
                 use_3rd_order:  true
+        gps:
+            rinex2:
+                rnx_code_conversions:
+                    P1: L1W
+                    P2: L2W
+                    C1: L1C
+                    C2: L2C
+                rnx_phase_conversions:
+                    L1: [ L1W, L1C ]
+                    L2: [ L2W, L2C ]
+        glo:
+            rinex2:
+                rnx_code_conversions:
+                    P1: L1P
+                    P2: L2P
+                    C1: L1C
+                    C2: L2C
+                rnx_phase_conversions:
+                    L1: [ L1P, L1C ]
+                    L2: [ L2P, L2C ]
 
     TEST: #change to header name of RNX
         receiver_type:       # #USER_SET (string)
@@ -164,7 +184,8 @@ processing_options:
         # always_reinitialise: false # Reset SPP state to zero to avoid potential for lock-in of bad states
         max_lsq_iterations: 12 # Maximum number of iterations of least squares allowed for convergence
         outlier_screening:
-            raim: true # Enable Receiver Autonomous Integrity Monitoring
+            raim:
+                enable: true # Enable Receiver Autonomous Integrity Monitoring
             max_gdop: 30 # Maximum dilution of precision before error is flagged
 
     ppp_filter:

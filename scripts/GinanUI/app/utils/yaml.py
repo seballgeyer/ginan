@@ -5,6 +5,8 @@ from pathlib import Path
 import tempfile
 import os
 
+from scripts.GinanUI.app.utils.logger import Logger
+
 """
 YAML utilities for the Ginan-UI application.
 
@@ -78,7 +80,7 @@ def write_yaml(file_path: Path, config, debug: bool = False):
         with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix=".yaml") as tmp_file:
             yaml.dump(config, tmp_file)
             tmp_file.seek(0)
-            print("[DEBUG] YAML OUTPUT (from temp file):\n" + tmp_file.read())
+            Logger.console("[DEBUG] YAML OUTPUT (from temp file):\n" + tmp_file.read())
 
 def update_yaml_values(file_path: Path, updates: list[tuple[str, str]]):
     """

@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from scripts.GinanUI.app.models.dl_products import get_product_dataframe, download_products, get_brdc_urls, METADATA, download_metadata
 from scripts.GinanUI.app.utils.common_dirs import INPUT_PRODUCTS_PATH
 
+from scripts.GinanUI.app.utils.logger import Logger
 
 class PeaExecutionWorker(QObject):
     """
@@ -19,8 +20,6 @@ class PeaExecutionWorker(QObject):
       - stop_all()  (optional but recommended: terminate underlying process)
     """
     finished = Signal(object)
-    error = Signal(str)
-    log = Signal(str)
 
     def __init__(self, execution):
         super().__init__()
@@ -29,24 +28,23 @@ class PeaExecutionWorker(QObject):
     @Slot()
     def stop(self):
         try:
-            self.log.emit("[PeaExecutionWorker] Stop requested — terminating PEA...")
+            Logger.terminal("🛑 Stop requested — terminating PEA...")
             # recommended to implement stop_all() in Execution to terminate child processes
             if hasattr(self.execution, "stop_all"):
                 self.execution.stop_all()
-            self.finished.emit("[PeaExecutionWorker] Stopped.")
+                Logger.terminal("🛑 Stopped")
         except Exception:
             tb = traceback.format_exc()
-            self.error.emit(f"[PeaExecutionWorker] Exception during stop:\n{tb}")
+            Logger.terminal(f"⚠️ Exception during stop:\n{tb}")
 
     @Slot()
     def run(self):
         try:
-            self.log.emit("[PeaExecutionWorker] Starting PEA execution...")
             self.execution.execute_config()
-            self.finished.emit("[PeaExecutionWorker] Execution finished successfully.")
+            self.finished.emit("✅ Execution finished successfully.")
         except Exception:
             tb = traceback.format_exc()
-            self.error.emit(f"[PeaExecutionWorker] Exception:\n{tb}")
+            Logger.terminal(f"⚠️ Error launching Execution! Exception:\n{tb}")
 
 
 class DownloadWorker(QObject):
@@ -60,9 +58,7 @@ class DownloadWorker(QObject):
     :param analysis_centers: Set to true to retrieve valid analysis centers, ensure start and end date specified
     """
     finished = Signal(object)
-    error = Signal(str)
     progress = Signal(str, int)
-    log = Signal(str)
     atx_downloaded = Signal(str)
 
     def __init__(self, start_epoch: Optional[datetime]=None, end_epoch: Optional[datetime]=None,
@@ -81,54 +77,52 @@ class DownloadWorker(QObject):
 
     @Slot()
     def run(self):
-        def _log_cb(msg: str):
-            self.log.emit(msg)
 
         # 1. Get valid products
         if self.analysis_centers:
             if not self.start_epoch and not self.end_epoch:
-                self.log.emit("[PPPDownloadWorker] No start and/or end date, can't check valid analysis centers")
+                Logger.terminal(f"📦 No start and/or end date, can't check valid analysis centers")
                 return
-            self.log.emit("[PPPDownloadWorker] Retrieving valid products")
+            Logger.terminal(f"📦 Retrieving valid products")
             try:
                 valid_products = get_product_dataframe(self.start_epoch, self.end_epoch)
                 self.finished.emit(valid_products)
             except Exception as e:
                 tb = traceback.format_exc()
-                self.log.emit(f"[PPPDownloadWorker] Error whilst retrieving valid products:\n{tb}")
-                self.error.emit(str(e))
+                Logger.terminal(f"⚠️ Error whilst retrieving valid products:\n{tb}")
+                Logger.terminal(f"⚠️ {e}")
             return
 
         # 2. Install metadata
         elif self.products.empty:
-            self.log.emit("[PPPDownloadWorker] Checking pre-processing metadata installed")
             try:
-                download_metadata(self.download_dir, _log_cb, self.progress.emit, self.atx_downloaded.emit)
+                download_metadata(self.download_dir, self.progress.emit, self.atx_downloaded.emit)
             except Exception as e:
                 tb = traceback.format_exc()
-                self.log.emit(f"[PPPDownloadWorker] Error whilst downloading metadata:\n{tb}")
-                self.error.emit(str(e))
+                Logger.terminal(f"⚠️ Error whilst downloading metadata:\n{tb}")
+                Logger.terminal(f"⚠️ {e}")
                 return
+
+            self.finished.emit("📦 Downloaded metadata successfully.")
 
 
         # 3. Install products
         else:
-            self.log.emit("[PPPDownloadWorker] Downloading specified products")
             try:
                 def check_stop():
                     return self._stop
                 # Disregard generator output
-                for _ in download_products(self.products, download_dir=self.download_dir, log_callback=_log_cb,
+                for _ in download_products(self.products, download_dir=self.download_dir,
                                   dl_urls=get_brdc_urls(self.start_epoch, self.end_epoch),
                                   progress_callback=self.progress.emit, stop_requested=check_stop):
                     pass
             except RuntimeError as e:
-                self.error.emit(str(e))
+                Logger.terminal(f"⚠️ {e}")
                 return
             except Exception as e:
                 tb = traceback.format_exc()
-                self.log.emit(f"[PPPDownloadWorker] Error whilst downloading products:\n{tb}")
-                self.error.emit(str(e))
+                Logger.terminal(f"⚠️ Error whilst downloading products:\n{tb}")
+                Logger.terminal(f"⚠️ {e}")
                 return
 
-        self.finished.emit("[PPPDownloadWorker] Downloaded all products successfully.")
+        self.finished.emit("📦 Downloaded all products successfully.")

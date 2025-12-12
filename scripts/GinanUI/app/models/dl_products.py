@@ -9,6 +9,7 @@ from typing import Optional, Callable, Generator, List
 from scripts.GinanUI.app.utils.cddis_email import get_netrc_auth
 from scripts.GinanUI.app.utils.common_dirs import INPUT_PRODUCTS_PATH
 from scripts.GinanUI.app.utils.gn_functions import GPSDate
+from scripts.GinanUI.app.utils.logger import Logger
 
 BASE_URL = "https://cddis.nasa.gov/archive"
 GPS_ORIGIN = np.datetime64("1980-01-06 00:00:00")  # Magic date from gn_functions
@@ -145,35 +146,116 @@ def get_product_dataframe(start_time: datetime, end_time: datetime, target_files
 def get_valid_analysis_centers(data: pd.DataFrame) -> set[str]:
     """
     Analyzes dataframe for valid analysis centers (those that provide contiguous coverage)
+    AND have all required file types (SP3, BIA, CLK) for at least one series.
 
     :param data: products dataframe, see: get_product_dataframe(), requires columns: "analysis_center", "project",
     "date", "solution_type", "period", "resolution", "content", "format"
-    :returns: set of valid analysis centers
+    :returns: set of valid analysis centers that have all required files for at least one series
     """
+    # Required file types for PPP processing
+    REQUIRED_FILES = {"SP3", "BIA", "CLK"}
+
+    # 1. Check for any gaps in coverage and remove
     for (center, _type, _format), group in data.groupby(["analysis_center", "solution_type", "format"]):
         # Time window is filtered for in get_product_dataframe; only need to check they're contiguous
         group = group.sort_values("date").reset_index(drop=True)
         for i in range(len(group) - 1):
             if group.loc[i]["date"] + group.loc[i]["period"] < group.loc[i + 1]["date"]:
-                print(
+                Logger.console(
                     f"Gap detected for {center} {_type} {_format} between {group.loc[i, 'date']} and {group.loc[i + 1, 'date']}")
                 data = data[
-                    data["analysis_center"] != center and data["solution_type"] != _type and data["format"] != _format]
+                    ~((data["analysis_center"] == center) and
+                      (data["solution_type"] == _type) and
+                      (data["format"] == _format))]
 
-    # 4. Report results
-    centers = set()
+    # 2. Filter for centers that have all required files for at least one series
+    valid_centers = set()
     for analysis_center in data["analysis_center"].unique():
+        center_data = data[data["analysis_center"] == analysis_center]
+
+        # Check each series to see if it has all required files
+        for series in center_data["solution_type"].unique():
+            series_data = center_data[center_data["solution_type"] == series]
+            available_files = set(series_data["format"].unique())
+
+            # If this series has all required files, the center is valid
+            if REQUIRED_FILES.issubset(available_files):
+                valid_centers.add(analysis_center)
+                break  # No need to check other series for this center
+
+    # 3. Only show series with all required files
+    centers = set()
+    for analysis_center in sorted(valid_centers):
         centers.add(analysis_center)
         center_products = data.loc[data["analysis_center"] == analysis_center]
-        center_products = center_products.drop_duplicates(subset=["solution_type", "format"], inplace=False)
-        offerings = ""
+
+        # Build a dict of file types to their available series
+        file_series_map = {}
         for _format in center_products["format"].unique():
-            types = center_products.loc[center_products["format"] == _format, "solution_type"].unique()
-            offerings += f"{_format}:({'/'.join(types)}) "
-        print(f"[Handler] {analysis_center} offers: {offerings}")
+            series_list = center_products.loc[center_products["format"] == _format, "solution_type"].unique()
+            file_series_map[_format] = set(series_list)
+
+        # Find series that have all required files
+        valid_series_for_center = set()
+        for series in center_products["solution_type"].unique():
+            series_data = center_products[center_products["solution_type"] == series]
+            available_files = set(series_data["format"].unique())
+            if REQUIRED_FILES.issubset(available_files):
+                valid_series_for_center.add(series)
+
+        # Build output string showing only complete series
+        offerings = ""
+        for _format in sorted(REQUIRED_FILES):
+            if _format in file_series_map:
+                # Only show series that have all three file types
+                complete_series = sorted(file_series_map[_format].intersection(valid_series_for_center))
+                if complete_series:
+                    offerings += f"{_format}:({'/'.join(complete_series)}) "
+
+        Logger.console(f"Analysis centre {analysis_center} offers: {offerings.strip()}")
 
     return centers
 
+
+def get_valid_series_for_provider(data: pd.DataFrame, provider: str) -> List[str]:
+    """
+    Get list of valid series (with all required files) for a specific provider.
+
+    :param data: products dataframe from get_product_dataframe()
+    :param provider: analysis center name (e.g., "COD", "GRG")
+    :returns: sorted list of valid series codes (e.g., ["FIN", "RAP"])
+    """
+    REQUIRED_FILES = {"SP3", "BIA", "CLK"}
+
+    # Filter for this provider
+    provider_data = data[data["analysis_center"] == provider]
+
+    # Find series that have all required files
+    valid_series = []
+    for series in provider_data["solution_type"].unique():
+        series_data = provider_data[provider_data["solution_type"] == series]
+        available_files = set(series_data["format"].unique())
+
+        if REQUIRED_FILES.issubset(available_files):
+            valid_series.append(series)
+
+    return sorted(valid_series)
+
+def get_valid_providers_with_series(data: pd.DataFrame) -> dict:
+    """
+    Get a mapping of providers to their valid series (with all required files).
+
+    :param data: products dataframe from get_product_dataframe()
+    :returns: dict mapping provider names to lists of valid series
+    """
+    provider_series_map = {}
+
+    for provider in data["analysis_center"].unique():
+        valid_series = get_valid_series_for_provider(data, provider)
+        if valid_series:  # Only include providers with at least one valid series
+            provider_series_map[provider] = valid_series
+
+    return provider_series_map
 
 def extract_file(filepath: Path) -> Path:
     """
@@ -196,7 +278,7 @@ def extract_file(filepath: Path) -> Path:
 
 
 def download_file(url: str, session: requests.Session, download_dir: Path = INPUT_PRODUCTS_PATH,
-                  log_callback=None, progress_callback: Optional[Callable] = None,
+                  progress_callback: Optional[Callable] = None,
                   stop_requested: Callable = None) -> Path:
     """
     Checks if file already exists (additionally in compressed or .part forms).
@@ -208,16 +290,12 @@ def download_file(url: str, session: requests.Session, download_dir: Path = INPU
     :param url: download url
     :param session: requests Session preloaded with users CDDIS credentials
     :param download_dir: dir to download to
-    :param log_callback: called for log statements
     :param progress_callback: reports, on every chunk, an int percentage of total download
     :param stop_requested: bool callback. Raises a RuntimeError if occurred during download
     :raises RuntimeError: Stop requested during download
     :raises Exception: Max retries reached
     :return:
     """
-
-    def log(msg: str):
-        log_callback(msg) if log_callback else print(msg)
 
     filepath = Path(download_dir / url.split("/")[-1])  # Download dir + filename
     # 1. When file already exists, extract if possible, then return
@@ -240,11 +318,11 @@ def download_file(url: str, session: requests.Session, download_dir: Path = INPU
         if _partial.exists():
             # Resume partial downloads
             headers = {"Range": f"bytes={_partial.stat().st_size}-"}
-            log(f"Resuming download of {filepath.name} from byte {_partial.stat().st_size}")
+            Logger.terminal(f"Resuming download of {filepath.name} from byte {_partial.stat().st_size}")
         else:
             # Download whole file
             headers = {"Range": "bytes=0-"}
-            log(f"Starting new download of {filepath.name}")
+            Logger.terminal(f"Starting new download of {filepath.name}")
             os.makedirs(_partial.parent, exist_ok=True)
 
             # Hack?! for windows error when open(_partial, "wb") not creating new files
@@ -289,7 +367,7 @@ def download_file(url: str, session: requests.Session, download_dir: Path = INPU
             else:
                 return filepath
         except requests.RequestException as e:
-            log(f"Failed attempt {i} to download {filepath.name}: {e}")
+            Logger.terminal(f"Failed attempt {i} to download {filepath.name}: {e}")
 
     raise (Exception(f"Failed to download {filepath.name} after {MAX_RETRIES} attempts"))
 
@@ -313,33 +391,31 @@ def get_brdc_urls(start_time: datetime, end_time: datetime) -> list[str]:
     return urls
 
 
-def download_metadata(download_dir: Path = INPUT_PRODUCTS_PATH, log_callback=None,
+def download_metadata(download_dir: Path = INPUT_PRODUCTS_PATH,
                       progress_callback: Optional[Callable] = None, atx_callback: Optional[Callable] = None):
     """
     Calls download_products() with args to download standard metadata files. Calls atx_callback("igs20.atx")
     once "igs20.atx" is downloaded. Won't install duplicate files.
 
     :param download_dir: dir to download to
-    :param log_callback: called for log statements
     :param progress_callback: reports, on every chunk, an int percentage of total download
     :param atx_callback: Optional callback function when igs20.atx is downloaded (downloaded_file)
     :raises Exception: Max retries reached
     """
-    for download in download_products(products=pd.DataFrame(), download_dir=download_dir, log_callback=log_callback,
+    for download in download_products(products=pd.DataFrame(), download_dir=download_dir,
                                       progress_callback=progress_callback, dl_urls=METADATA):
         if atx_callback and download.name == "igs20.atx":
             atx_callback(download.name)
 
 
 def download_products(products: pd.DataFrame, download_dir: Path = INPUT_PRODUCTS_PATH,
-                      log_callback: Optional[Callable] = None, dl_urls: list = None, progress_callback: Optional[Callable] = None,
+                      dl_urls: list = None, progress_callback: Optional[Callable] = None,
                       stop_requested: Optional[Callable] = None) -> Generator[Path, None, None]:
     """
     Creates download URLs for products and subsequently calls download_file() on them. Won't install duplicate files.
 
     :param pd.DataFrame products: (from get_product_dataframe) of all products to download
     :param download_dir: dir to download to
-    :param log_callback: called for log statements
     :param dl_urls: Optional list of additional URLs to download (e.g. BRDC files)
     :param progress_callback: reports, on every chunk, an int percentage of total download
     :param stop_requested: bool callback. Raises a RuntimeError if occurred during download
@@ -347,9 +423,6 @@ def download_products(products: pd.DataFrame, download_dir: Path = INPUT_PRODUCT
     :raises RuntimeError: Stop requested during download
     :raises Exception: Max retries reached
     """
-
-    def log(msg: str):
-        log_callback(msg) if log_callback else print(msg)
 
     # 1. Generate filenames from the DataFrame
     downloads = []
@@ -374,7 +447,7 @@ def download_products(products: pd.DataFrame, download_dir: Path = INPUT_PRODUCT
     if dl_urls:
         downloads.extend(dl_urls)
 
-    log(f"📦 {len(downloads)} files to check or download")
+    Logger.terminal(f"📦 {len(downloads)} files to check or download")
     download_dir.mkdir(parents=True, exist_ok=True)
     (download_dir / "tables").mkdir(parents=True, exist_ok=True)
     _sesh = requests.Session()
@@ -385,7 +458,7 @@ def download_products(products: pd.DataFrame, download_dir: Path = INPUT_PRODUCT
             fin_dir = download_dir
         else:
             fin_dir = download_dir / "tables" if _x[-2] == "tables" else download_dir
-        yield download_file(url, _sesh, fin_dir, log_callback, progress_callback, stop_requested)
+        yield download_file(url, _sesh, fin_dir, progress_callback, stop_requested)
 
 
 if __name__ == "__main__":
@@ -410,7 +483,7 @@ if __name__ == "__main__":
         for chunk in req.iter_content(chunk_size=CHUNK_SIZE):
             if chunk:  # Filters keep-alives
                 z.write(chunk)
-    print(f"Downloaded {y.stat().st_size} bytes to {y}.\nAttempting to resume full download...")
+    Logger.console(f"Downloaded {y.stat().st_size} bytes to {y}.\nAttempting to resume full download...")
     download_file(f"{BASE_URL}/gnss/products/2062/{x.name}", sesh, INPUT_PRODUCTS_PATH)
-    print(f"Success!")
+    Logger.console(f"Success!")
     x.unlink()

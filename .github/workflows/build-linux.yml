@@ -1,0 +1,89 @@
+name: Build Linux
+
+on:
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          curl \
+          zip \
+          unzip \
+          tar \
+          pkg-config \
+          git
+    
+    - name: Setup vcpkg binary cache
+      run: |
+        mkdir -p ${{ github.workspace }}/.vcpkg-cache
+        echo "VCPKG_BINARY_SOURCES=clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite" >> $GITHUB_ENV
+        echo "VCPKG_BUILD_TYPE=release" >> $GITHUB_ENV
+    
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          .vcpkg-cache
+          vcpkg
+        key: vcpkg-linux-v4-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-linux-v4-
+    
+    - name: Setup vcpkg
+      run: |
+        if [ ! -d "vcpkg" ]; then
+          git clone https://github.com/Microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+        fi
+        echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+    
+    - name: Install vcpkg dependencies
+      run: |
+        export VCPKG_BUILD_TYPE=release
+        cd ${{ github.workspace }}
+        ./vcpkg/vcpkg install --triplet x64-linux --x-install-root=./vcpkg_installed
+    
+    - name: Clean build directory
+      working-directory: src
+      run: |
+        rm -rf build/linux-Release
+    
+    - name: Configure CMake
+      working-directory: src
+      run: |
+        cmake --preset release
+    
+    - name: Build
+      working-directory: src
+      run: |
+        cmake --build build/linux-Release --parallel $(nproc)
+    
+    - name: Collect artifacts
+      run: |
+        mkdir -p artifacts/linux
+        cp -r bin/* artifacts/linux/ || true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ginan-linux-x64
+        path: artifacts/linux/
+        retention-days: 30

@@ -51,7 +51,18 @@ jobs:
       run: |
         export VCPKG_BUILD_TYPE=release
         cd ${{ github.workspace }}
-        ./vcpkg/vcpkg install --triplet arm64-osx --x-install-root=./vcpkg_installed
+        # Retry logic for transient network failures
+        for i in 1 2 3; do
+          ./vcpkg/vcpkg install --triplet arm64-osx --x-install-root=./vcpkg_installed && break || {
+            echo "vcpkg install attempt $i failed, retrying...";
+            sleep 10;
+          }
+        done
+    
+    - name: Clean build directory
+      working-directory: src
+      run: |
+        rm -rf build/mac-arm64-Release
     
     - name: Configure CMake
       working-directory: src
@@ -76,7 +87,7 @@ jobs:
         retention-days: 30
 
   build-macos-x64:
-    runs-on: macos-15-intel   # macOS x86_64 runner
+    runs-on: macos-15-intel  # macOS x86_64 runner
     
     steps:
     - name: Checkout repository
@@ -118,7 +129,18 @@ jobs:
       run: |
         export VCPKG_BUILD_TYPE=release
         cd ${{ github.workspace }}
-        ./vcpkg/vcpkg install --triplet x64-osx --x-install-root=./vcpkg_installed
+        # Retry logic for transient network failures
+        for i in 1 2 3; do
+          ./vcpkg/vcpkg install --triplet x64-osx --x-install-root=./vcpkg_installed && break || {
+            echo "vcpkg install attempt $i failed, retrying...";
+            sleep 10;
+          }
+        done
+    
+    - name: Clean build directory
+      working-directory: src
+      run: |
+        rm -rf build/mac-x64-Release
     
     - name: Configure CMake
       working-directory: src

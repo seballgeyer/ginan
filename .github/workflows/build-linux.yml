@@ -1,10 +1,10 @@
 name: Build Linux
 
 on:
-  # push:
-  #   branches: [ main, develop, develop-weekly ]
-  # pull_request:
-  #   branches: [ main, develop, develop-weekly ]
+  push:
+    branches: [ main, develop, develop-weekly ]
+  pull_request:
+    branches: [ main, develop, develop-weekly ]
   workflow_dispatch:
 
 jobs:

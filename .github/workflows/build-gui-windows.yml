@@ -1,14 +1,10 @@
 name: Build GUI Windows
 
 on:
-  push:
-    branches: [ main, develop, develop-weekly ]
-  pull_request:
-    branches: [ main, develop, develop-weekly ]
-  # workflow_run:
-  #   workflows: ["Build Windows (Cross-Compile)"]
-  #   types:
-  #     - completed
+  workflow_run:
+    workflows: ["Build Windows (Cross-Compile)"]
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
@@ -16,12 +12,11 @@ jobs:
     runs-on: windows-latest
     
     steps:
-    # - name: Check workflow run conclusion
-    #   if: ${{ github.event.workflow_run.conclusion != 'success' }}
-    #   run: |
-    #     echo "Core build workflow failed or was cancelled"
-    #     exit 1
-    
+    - name: Check workflow run conclusion
+      if: ${{ github.event.workflow_run.conclusion != 'success' }}
+      run: |
+        echo "Core build workflow failed or was cancelled"
+        exit 1
     - name: Checkout repository
       uses: actions/checkout@v4
       with:

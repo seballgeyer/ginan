@@ -315,6 +315,8 @@ jobs:
           --collect-submodules scripts.GinanUI \
           --collect-submodules plotly \
           --collect-submodules plotly.graph_objs \
+          --collect-submodules PySide6.QtWebEngineCore \
+          --collect-submodules PySide6.QtWebEngineWidgets \
           --hidden-import plotly.validators \
           --hidden-import plotly.offline \
           scripts/GinanUI/main.py
@@ -389,6 +391,8 @@ jobs:
           --collect-submodules scripts.GinanUI `
           --collect-submodules plotly `
           --collect-submodules plotly.graph_objs `
+          --collect-submodules PySide6.QtWebEngineCore `
+          --collect-submodules PySide6.QtWebEngineWidgets `
           --hidden-import plotly.validators `
           --hidden-import plotly.offline `
           scripts/GinanUI/main.py

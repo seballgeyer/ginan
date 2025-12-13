@@ -98,7 +98,13 @@ jobs:
       run: |
         export VCPKG_BUILD_TYPE=release
         cd ${{ github.workspace }}
-        ./vcpkg/vcpkg install --triplet ${{ matrix.triplet }} --x-install-root=./vcpkg_installed ${{ matrix.vcpkg-extra-flags }}
+        # Retry logic for transient network failures
+        for i in 1 2 3; do
+          ./vcpkg/vcpkg install --triplet ${{ matrix.triplet }} --x-install-root=./vcpkg_installed ${{ matrix.vcpkg-extra-flags }} && break || {
+            echo "vcpkg install attempt $i failed, retrying...";
+            sleep 10;
+          }
+        done
     
     - name: Clean build directory
       working-directory: src
@@ -225,9 +231,14 @@ jobs:
       run: |
         python -m PyInstaller --name GinanUI \
           ${{ matrix.pyinstaller-args }} \
+          --strip \
           --add-data "scripts/GinanUI/app:app" \
           --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
+          --exclude-module tkinter \
+          --exclude-module IPython \
+          --exclude-module notebook \
+          --exclude-module pytest \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
           --hidden-import PySide6.QtWebEngineCore \
@@ -247,8 +258,11 @@ jobs:
           --hidden-import scripts.GinanUI.app.utils.gn_functions \
           --hidden-import scripts.GinanUI.app.utils.yaml \
           --hidden-import scripts.GinanUI.app.views.main_window_ui \
-          --collect-all scripts.GinanUI \
-          --collect-submodules PySide6 \
+          --collect-submodules scripts.GinanUI \
+          --collect-submodules plotly \
+          --collect-submodules plotly.graph_objs \
+          --hidden-import plotly.validators \
+          --hidden-import plotly.offline \
           scripts/GinanUI/main.py
     
     - name: Build GUI with PyInstaller (Windows)
@@ -256,9 +270,14 @@ jobs:
       run: |
         pyinstaller --name GinanUI `
           ${{ matrix.pyinstaller-args }} `
+          --strip `
           --add-data "scripts/GinanUI/app;app" `
           --add-data "scripts/plot_pos.py;scripts" `
           --add-binary "bin/*;bin" `
+          --exclude-module tkinter `
+          --exclude-module IPython `
+          --exclude-module notebook `
+          --exclude-module pytest `
           --hidden-import PySide6 `
           --hidden-import PySide6.QtWebEngineWidgets `
           --hidden-import PySide6.QtWebEngineCore `
@@ -278,8 +297,48 @@ jobs:
           --hidden-import scripts.GinanUI.app.utils.gn_functions `
           --hidden-import scripts.GinanUI.app.utils.yaml `
           --hidden-import scripts.GinanUI.app.views.main_window_ui `
-          --collect-all scripts.GinanUI `
+          --collect-submodules scripts.GinanUI `
+          --collect-submodules plotly `
+          --collect-submodules plotly.graph_objs `
+          --hidden-import plotly.validators `
+          --hidden-import plotly.offline `
           scripts/GinanUI/main.py
+    
+    # Post-build cleanup
+    - name: Remove unnecessary files (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        cd dist/GinanUI
+        # Remove Qt translations (saves ~50MB)
+        find . -path "*/PySide6/Qt/translations" -type d -exec rm -rf {} + 2>/dev/null || true
+        # Remove Qt docs and examples
+        find . -path "*/PySide6/Qt/doc" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/examples" -type d -exec rm -rf {} + 2>/dev/null || true
+        # Remove __pycache__ and .pyc files
+        find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        find . -type f -name "*.pyc" -delete
+        # Strip debug symbols from libraries
+        if [ "$RUNNER_OS" = "macOS" ]; then
+          find . -name "*.so" -exec strip -x {} \; 2>/dev/null || true
+          find . -name "*.dylib" -exec strip -x {} \; 2>/dev/null || true
+          find . -name ".DS_Store" -delete
+        else
+          find . -name "*.so" -exec strip {} \; 2>/dev/null || true
+        fi
+    
+    - name: Remove unnecessary files (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        cd dist/GinanUI
+        # Remove Qt translations (saves ~50MB)
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*PySide6*translations*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        # Remove Qt docs and examples
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*PySide6*doc*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*PySide6*examples*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        # Remove __pycache__ and .pyc files
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "__pycache__" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -File -Filter "*.pyc" | Remove-Item -Force -ErrorAction SilentlyContinue
     
     # macOS-specific post-build steps
     - name: Copy Qt WebEngine resources (macOS)

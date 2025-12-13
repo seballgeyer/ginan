@@ -226,6 +226,24 @@ jobs:
       if: runner.os != 'Windows'
       run: chmod +x bin/*
     
+    - name: Copy required libraries (macOS)
+      if: matrix.extra-steps == 'macos'
+      run: |
+        # Copy OpenMP library that binaries depend on
+        if [ -f "/opt/homebrew/lib/libomp.dylib" ]; then
+          cp /opt/homebrew/lib/libomp.dylib bin/
+        elif [ -f "/usr/local/lib/libomp.dylib" ]; then
+          cp /usr/local/lib/libomp.dylib bin/
+        else
+          echo "Warning: libomp.dylib not found"
+        fi
+        # Copy other potential dependencies
+        if [ -f "/opt/homebrew/lib/libgfortran.5.dylib" ]; then
+          cp /opt/homebrew/lib/libgfortran.5.dylib bin/ || true
+        elif [ -f "/usr/local/lib/libgfortran.5.dylib" ]; then
+          cp /usr/local/lib/libgfortran.5.dylib bin/ || true
+        fi
+    
     - name: Build GUI with PyInstaller (Unix)
       if: runner.os != 'Windows'
       run: |
@@ -525,6 +543,27 @@ jobs:
         elif [ -d "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" ]; then
           cp -R "$PYSIDE_PATH/Qt/lib/QtWebEngineCore.framework/Helpers/QtWebEngineProcess.app" dist/GinanUI/Helpers/
         fi
+    
+    - name: Copy runtime libraries to package (macOS)
+      if: matrix.extra-steps == 'macos'
+      run: |
+        # Copy OpenMP and other libraries into the package
+        mkdir -p dist/GinanUI/_internal/lib
+        if [ -f "bin/libomp.dylib" ]; then
+          cp bin/libomp.dylib dist/GinanUI/_internal/lib/
+        fi
+        if [ -f "bin/libgfortran.5.dylib" ]; then
+          cp bin/libgfortran.5.dylib dist/GinanUI/_internal/lib/
+        fi
+        # Update binaries to look in @executable_path/../lib for libraries
+        for binary in dist/GinanUI/_internal/bin/*; do
+          if [ -f "$binary" ] && file "$binary" | grep -q "Mach-O"; then
+            install_name_tool -add_rpath "@executable_path/../lib" "$binary" 2>/dev/null || true
+            # Update libomp reference
+            install_name_tool -change "/opt/homebrew/lib/libomp.dylib" "@rpath/libomp.dylib" "$binary" 2>/dev/null || true
+            install_name_tool -change "/usr/local/lib/libomp.dylib" "@rpath/libomp.dylib" "$binary" 2>/dev/null || true
+          fi
+        done
     
     - name: Code sign binaries (macOS)
       if: matrix.extra-steps == 'macos'

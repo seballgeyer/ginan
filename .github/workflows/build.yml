@@ -211,11 +211,6 @@ jobs:
         name: ${{ matrix.binary-artifact }}
         path: bin/
     
-    - name: Install runtime dependencies (macOS)
-      if: matrix.extra-steps == 'macos'
-      run: |
-        brew install libomp
-    
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
@@ -244,6 +239,14 @@ jobs:
     - name: Make binaries executable (Unix)
       if: runner.os != 'Windows'
       run: chmod +x bin/*
+    
+    - name: Install OpenMP (macOS)
+      if: matrix.extra-steps == 'macos'
+      run: |
+        echo "Installing OpenMP via Homebrew..."
+        brew install libomp
+        echo "OpenMP installed, checking location..."
+        ls -la /opt/homebrew/lib/libomp* 2>/dev/null || ls -la /usr/local/lib/libomp* 2>/dev/null || true
     
     - name: Copy required libraries (macOS)
       if: matrix.extra-steps == 'macos'

@@ -252,18 +252,27 @@ jobs:
       if: matrix.extra-steps == 'macos'
       run: |
         echo "Looking for OpenMP library..."
-        ls -la /opt/homebrew/lib/libomp* 2>/dev/null || true
-        ls -la /usr/local/lib/libomp* 2>/dev/null || true
         
-        # Copy OpenMP library that binaries depend on
-        if [ -f "/opt/homebrew/lib/libomp.dylib" ]; then
-          echo "Copying libomp from /opt/homebrew/lib/"
-          cp -v /opt/homebrew/lib/libomp.dylib bin/
+        # libomp is keg-only, so check Cellar and opt paths
+        LIBOMP_PATH=""
+        if [ -f "/opt/homebrew/opt/libomp/lib/libomp.dylib" ]; then
+          LIBOMP_PATH="/opt/homebrew/opt/libomp/lib/libomp.dylib"
+        elif [ -f "/usr/local/opt/libomp/lib/libomp.dylib" ]; then
+          LIBOMP_PATH="/usr/local/opt/libomp/lib/libomp.dylib"
+        elif [ -f "/opt/homebrew/lib/libomp.dylib" ]; then
+          LIBOMP_PATH="/opt/homebrew/lib/libomp.dylib"
         elif [ -f "/usr/local/lib/libomp.dylib" ]; then
-          echo "Copying libomp from /usr/local/lib/"
-          cp -v /usr/local/lib/libomp.dylib bin/
+          LIBOMP_PATH="/usr/local/lib/libomp.dylib"
+        fi
+        
+        if [ -n "$LIBOMP_PATH" ]; then
+          echo "Found libomp at: $LIBOMP_PATH"
+          cp -v "$LIBOMP_PATH" bin/
         else
-          echo "ERROR: libomp.dylib not found in Homebrew locations!"
+          echo "ERROR: libomp.dylib not found!"
+          echo "Searching in Cellar..."
+          find /usr/local/Cellar/libomp -name "libomp.dylib" 2>/dev/null || true
+          find /opt/homebrew/Cellar/libomp -name "libomp.dylib" 2>/dev/null || true
           exit 1
         fi
         

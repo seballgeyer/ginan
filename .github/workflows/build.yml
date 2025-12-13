@@ -229,20 +229,31 @@ jobs:
     - name: Copy required libraries (macOS)
       if: matrix.extra-steps == 'macos'
       run: |
+        echo "Looking for OpenMP library..."
+        ls -la /opt/homebrew/lib/libomp* 2>/dev/null || true
+        ls -la /usr/local/lib/libomp* 2>/dev/null || true
+        
         # Copy OpenMP library that binaries depend on
         if [ -f "/opt/homebrew/lib/libomp.dylib" ]; then
-          cp /opt/homebrew/lib/libomp.dylib bin/
+          echo "Copying libomp from /opt/homebrew/lib/"
+          cp -v /opt/homebrew/lib/libomp.dylib bin/
         elif [ -f "/usr/local/lib/libomp.dylib" ]; then
-          cp /usr/local/lib/libomp.dylib bin/
+          echo "Copying libomp from /usr/local/lib/"
+          cp -v /usr/local/lib/libomp.dylib bin/
         else
-          echo "Warning: libomp.dylib not found"
+          echo "ERROR: libomp.dylib not found in Homebrew locations!"
+          exit 1
         fi
+        
         # Copy other potential dependencies
         if [ -f "/opt/homebrew/lib/libgfortran.5.dylib" ]; then
           cp /opt/homebrew/lib/libgfortran.5.dylib bin/ || true
         elif [ -f "/usr/local/lib/libgfortran.5.dylib" ]; then
           cp /usr/local/lib/libgfortran.5.dylib bin/ || true
         fi
+        
+        echo "Contents of bin/ after library copy:"
+        ls -lh bin/*.dylib 2>/dev/null || echo "No .dylib files in bin/"
     
     - name: Build GUI with PyInstaller (Unix)
       if: runner.os != 'Windows'

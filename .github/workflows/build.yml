@@ -232,6 +232,7 @@ jobs:
         python -m PyInstaller --name GinanUI \
           ${{ matrix.pyinstaller-args }} \
           --strip \
+          --noupx \
           --add-data "scripts/GinanUI/app:app" \
           --add-data "scripts/plot_pos.py:scripts" \
           --add-binary "bin/*:bin" \
@@ -239,6 +240,41 @@ jobs:
           --exclude-module IPython \
           --exclude-module notebook \
           --exclude-module pytest \
+          --exclude-module PySide6.Qt3DAnimation \
+          --exclude-module PySide6.Qt3DCore \
+          --exclude-module PySide6.Qt3DExtras \
+          --exclude-module PySide6.Qt3DInput \
+          --exclude-module PySide6.Qt3DLogic \
+          --exclude-module PySide6.Qt3DRender \
+          --exclude-module PySide6.QtCharts \
+          --exclude-module PySide6.QtDataVisualization \
+          --exclude-module PySide6.QtDesigner \
+          --exclude-module PySide6.QtHelp \
+          --exclude-module PySide6.QtMultimedia \
+          --exclude-module PySide6.QtMultimediaWidgets \
+          --exclude-module PySide6.QtOpenGL \
+          --exclude-module PySide6.QtOpenGLWidgets \
+          --exclude-module PySide6.QtPdf \
+          --exclude-module PySide6.QtPdfWidgets \
+          --exclude-module PySide6.QtPrintSupport \
+          --exclude-module PySide6.QtQml \
+          --exclude-module PySide6.QtQuick \
+          --exclude-module PySide6.QtQuick3D \
+          --exclude-module PySide6.QtQuickControls2 \
+          --exclude-module PySide6.QtQuickWidgets \
+          --exclude-module PySide6.QtRemoteObjects \
+          --exclude-module PySide6.QtScxml \
+          --exclude-module PySide6.QtSensors \
+          --exclude-module PySide6.QtSerialPort \
+          --exclude-module PySide6.QtSpatialAudio \
+          --exclude-module PySide6.QtSql \
+          --exclude-module PySide6.QtStateMachine \
+          --exclude-module PySide6.QtSvg \
+          --exclude-module PySide6.QtSvgWidgets \
+          --exclude-module PySide6.QtTest \
+          --exclude-module PySide6.QtUiTools \
+          --exclude-module PySide6.QtWebSockets \
+          --exclude-module PySide6.QtXml \
           --hidden-import PySide6 \
           --hidden-import PySide6.QtWebEngineWidgets \
           --hidden-import PySide6.QtWebEngineCore \
@@ -270,7 +306,7 @@ jobs:
       run: |
         pyinstaller --name GinanUI `
           ${{ matrix.pyinstaller-args }} `
-          --strip `
+          --noupx `
           --add-data "scripts/GinanUI/app;app" `
           --add-data "scripts/plot_pos.py;scripts" `
           --add-binary "bin/*;bin" `
@@ -278,6 +314,41 @@ jobs:
           --exclude-module IPython `
           --exclude-module notebook `
           --exclude-module pytest `
+          --exclude-module PySide6.Qt3DAnimation `
+          --exclude-module PySide6.Qt3DCore `
+          --exclude-module PySide6.Qt3DExtras `
+          --exclude-module PySide6.Qt3DInput `
+          --exclude-module PySide6.Qt3DLogic `
+          --exclude-module PySide6.Qt3DRender `
+          --exclude-module PySide6.QtCharts `
+          --exclude-module PySide6.QtDataVisualization `
+          --exclude-module PySide6.QtDesigner `
+          --exclude-module PySide6.QtHelp `
+          --exclude-module PySide6.QtMultimedia `
+          --exclude-module PySide6.QtMultimediaWidgets `
+          --exclude-module PySide6.QtOpenGL `
+          --exclude-module PySide6.QtOpenGLWidgets `
+          --exclude-module PySide6.QtPdf `
+          --exclude-module PySide6.QtPdfWidgets `
+          --exclude-module PySide6.QtPrintSupport `
+          --exclude-module PySide6.QtQml `
+          --exclude-module PySide6.QtQuick `
+          --exclude-module PySide6.QtQuick3D `
+          --exclude-module PySide6.QtQuickControls2 `
+          --exclude-module PySide6.QtQuickWidgets `
+          --exclude-module PySide6.QtRemoteObjects `
+          --exclude-module PySide6.QtScxml `
+          --exclude-module PySide6.QtSensors `
+          --exclude-module PySide6.QtSerialPort `
+          --exclude-module PySide6.QtSpatialAudio `
+          --exclude-module PySide6.QtSql `
+          --exclude-module PySide6.QtStateMachine `
+          --exclude-module PySide6.QtSvg `
+          --exclude-module PySide6.QtSvgWidgets `
+          --exclude-module PySide6.QtTest `
+          --exclude-module PySide6.QtUiTools `
+          --exclude-module PySide6.QtWebSockets `
+          --exclude-module PySide6.QtXml `
           --hidden-import PySide6 `
           --hidden-import PySide6.QtWebEngineWidgets `
           --hidden-import PySide6.QtWebEngineCore `
@@ -309,14 +380,46 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         cd dist/GinanUI
-        # Remove Qt translations (saves ~50MB)
+        echo "Size before cleanup:"
+        du -sh .
+        
+        # Remove Qt translations (saves ~50-100MB)
         find . -path "*/PySide6/Qt/translations" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/translations" -type d -exec rm -rf {} + 2>/dev/null || true
+        
         # Remove Qt docs and examples
         find . -path "*/PySide6/Qt/doc" -type d -exec rm -rf {} + 2>/dev/null || true
         find . -path "*/PySide6/examples" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/doc" -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/examples" -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
+        
+        # Remove unused Qt plugins (saves ~50-100MB)
+        find . -path "*/PySide6/Qt/plugins/assetimporters" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/designer" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/geometryloaders" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/multimedia" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/printsupport" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/qmltooling" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/renderers" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/renderplugins" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/sceneparsers" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/scxmldatamodel" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/sensors" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -path "*/PySide6/Qt/plugins/sqldrivers" -type d -exec rm -rf {} + 2>/dev/null || true
+        
+        # Remove Qt QML files (we don't use QML)
+        find . -path "*/PySide6/Qt/qml" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -name "*.qml" -delete 2>/dev/null || true
+        
         # Remove __pycache__ and .pyc files
         find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
         find . -type f -name "*.pyc" -delete
+        find . -type f -name "*.pyo" -delete
+        
+        # Remove test files
+        find . -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
+        find . -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
+        
         # Strip debug symbols from libraries
         if [ "$RUNNER_OS" = "macOS" ]; then
           find . -name "*.so" -exec strip -x {} \; 2>/dev/null || true
@@ -325,20 +428,48 @@ jobs:
         else
           find . -name "*.so" -exec strip {} \; 2>/dev/null || true
         fi
+        
+        echo "Size after cleanup:"
+        du -sh .
     
     - name: Remove unnecessary files (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
         cd dist/GinanUI
-        # Remove Qt translations (saves ~50MB)
-        Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*PySide6*translations*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "Size before cleanup:"
+        $size = (Get-ChildItem -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Host "$([math]::Round($size, 2)) MB"
+        
+        # Remove Qt translations (saves ~50-100MB)
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*translations*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        
         # Remove Qt docs and examples
-        Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*PySide6*doc*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-        Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*PySide6*examples*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-        # Remove __pycache__ and .pyc files
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "doc" -or $_.Name -eq "examples" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        
+        # Remove unused Qt plugins (saves ~50-100MB)
+        $unusedPlugins = @("assetimporters", "designer", "geometryloaders", "multimedia", 
+                          "printsupport", "qmltooling", "renderers", "renderplugins", 
+                          "sceneparsers", "scxmldatamodel", "sensors", "sqldrivers")
+        foreach ($plugin in $unusedPlugins) {
+          Get-ChildItem -Recurse -Directory | Where-Object { $_.Parent.Name -eq "plugins" -and $_.Name -eq $plugin } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Remove Qt QML files (we don't use QML)
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "qml" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -File -Filter "*.qml" | Remove-Item -Force -ErrorAction SilentlyContinue
+        
+        # Remove __pycache__ and compiled Python files
         Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "__pycache__" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
         Get-ChildItem -Recurse -File -Filter "*.pyc" | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -File -Filter "*.pyo" | Remove-Item -Force -ErrorAction SilentlyContinue
+        
+        # Remove test directories
+        Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "tests" -or $_.Name -eq "test" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "Size after cleanup:"
+        $size = (Get-ChildItem -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Host "$([math]::Round($size, 2)) MB"
     
     # macOS-specific post-build steps
     - name: Copy Qt WebEngine resources (macOS)

@@ -24,14 +24,18 @@ test_visualisation = False
 
 
 def setup_main_window():
+    # Only compile UI if the compiled file doesn't exist (development mode)
+    ui_file = Path(__file__).parent / "views" / "main_window_ui.py"
+    #if not ui_file.exists():
+    #    compile_ui()  # Compile .ui files during development
     import sys
     IS_FROZEN = getattr(sys, 'frozen', False)
 
     if not IS_FROZEN:
-        # Only compile UI during development
+    # Only compile UI during development
         compile_ui()
-
-    from scripts.GinanUI.app.views.main_window_ui import Ui_MainWindow
+    else:
+        from scripts.GinanUI.app.views.main_window_ui import Ui_MainWindow
     return Ui_MainWindow()
 
 class MainWindow(QMainWindow):
@@ -440,61 +444,4 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-    def _fix_macos_tab_styling(self):
-        """
-        Fix tab widget styling on macOS where native styling overrides custom stylesheets.
-        This method applies a comprehensive stylesheet directly to the QTabBar to ensure
-        consistent appearance across all platforms.
-        """
-        import platform
-
-        # On macOS, we need to be more aggressive with styling to override native appearance
-        if platform.system() == "Darwin":
-            # Import QStyleFactory to optionally force Fusion style
-            from PySide6.QtWidgets import QStyleFactory
-
-            # Force Fusion style on the tab widget to disable native macOS rendering
-            fusion_style = QStyleFactory.create("Fusion")
-            if fusion_style:
-                self.ui.tabWidget.setStyle(fusion_style)
-
-        # Apply comprehensive stylesheet to ensure consistent appearance
-        tab_bar_stylesheet = """
-        QTabWidget::pane {
-            border: none;
-            background-color: #2c5d7c;
-        }
-
-        QTabBar {
-            background-color: transparent;
-            alignment: left;
-        }
-
-        QTabBar::tab {
-            background-color: #1a3a4d;
-            color: white;
-            padding: 8px 16px;
-            margin-right: 2px;
-            border: none;
-            border-top-left-radius: 4px;
-            border-top-right-radius: 4px;
-            min-width: 60px;
-        }
-
-        QTabBar::tab:selected {
-            background-color: #2c5d7c;
-            color: white;
-            font-weight: bold;
-        }
-
-        QTabBar::tab:hover:!selected {
-            background-color: #234a5f;
-        }
-
-        QTabBar::tab:!selected {
-            margin-top: 2px;
-        }
-        """
-
-        # Apply the stylesheet to the tab widget
-        self.ui.tabWidget.setStyleSheet(tab_bar_stylesheet)
+        # self.log_message("🛑 Stop signals sent.")

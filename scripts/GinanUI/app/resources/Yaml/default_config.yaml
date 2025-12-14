@@ -184,8 +184,8 @@ processing_options:
         # always_reinitialise: false # Reset SPP state to zero to avoid potential for lock-in of bad states
         max_lsq_iterations: 12 # Maximum number of iterations of least squares allowed for convergence
         outlier_screening:
-            raim:
-                enable: true # Enable Receiver Autonomous Integrity Monitoring
+            raim:  # Enable Receiver Autonomous Integrity Monitoring
+                enable: true
             max_gdop: 30 # Maximum dilution of precision before error is flagged
 
     ppp_filter:

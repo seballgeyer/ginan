@@ -41,25 +41,23 @@ def get_pea_exec():
     :raises RuntimeError: If PEA binary cannot be found
     """
     import sys
-
-    # 1. Check if running in PyInstaller bundle
+    
+    # Check if running in PyInstaller bundle
     if getattr(sys, 'frozen', False):
         # Running in bundled mode
         base_path = Path(sys._MEIPASS)
-
+        
         # On macOS .app bundles, binaries are in Resources/bin/
         if platform.system().lower() == "darwin":
             # Try Resources/bin first (macOS .app structure)
             pea_path = base_path.parent / "Resources" / "bin" / "pea"
             if pea_path.exists():
-                print(f"[Execution] Found bundled PEA binary at: {pea_path}")
                 return pea_path
             # Fallback to _internal/bin
             pea_path = base_path / "bin" / "pea"
             if pea_path.exists():
-                print(f"[Execution] Found bundled PEA binary at: {pea_path}")
                 return pea_path
-
+        
         # Linux/Windows: binaries in _internal/bin
         else:
             # Windows uses .exe extension
@@ -67,61 +65,24 @@ def get_pea_exec():
             pea_path = base_path / "bin" / exe_name
             if pea_path.exists():
                 return pea_path
-
+        
         print(f"[Execution] Bundled binary not found in expected locations")
-        # Fall through to try other methods
-
-    # 2. Check if 'pea' is on PATH (most reliable if user has configured their environment)
+        return None
+    
+    # Running in development mode
+    # Check if pea is available on PATH
     if shutil.which("pea"):
-        executable = "pea"
-        Logger.console(f"✅ Found PEA on PATH: {shutil.which('pea')}")
-        return executable
-
-    # 3. Try to find PEA relative to this script's location
-    # Current file: ginan/scripts/GinanUI/app/models/execution.py
-    # Target file:  ginan/bin/pea
-    try:
-        current_file = Path(__file__).resolve()
-        # Navigate from: "ginan/scripts/GinanUI/app/models/execution.py" to "ginan/"
-        ginan_root = current_file.parents[4]  # Go up: models -> app -> GinanUI -> scripts -> ginan
-
-        # Check for the binary in ginan/bin/pea
-        pea_binary = ginan_root / "bin" / "pea"
-
-        if pea_binary.exists() and pea_binary.is_file():
-            # Make sure it's executable (permissions are set up right)
-            if not os.access(pea_binary, os.X_OK):
-                Logger.console(f"✅ Found PEA at {pea_binary} but it's not executable. Attempting to fix...")
-                try:
-                    pea_binary.chmod(pea_binary.stat().st_mode | 0o111)  # Add "execute" permissions
-                    Logger.console(f"✅ Made PEA executable")
-                except Exception as e:
-                    Logger.console(f"⚠️ Could not make PEA executable: {e}")
-                    raise RuntimeError(f"⚠️ PEA binary found at {pea_binary} but is not executable and cannot be fixed")
-
-            Logger.console(f"✅ Found PEA binary at: {pea_binary}")
-            return pea_binary
-        else:
-            Logger.console(f"⚠️ Expected PEA binary at {pea_binary} but not found")
-
-    except Exception as e:
-        Logger.console(f"⚠️ Error while searching for PEA relative to script location: {e}")
-
-    # 4. Platform-specific fallbacks (optional - can be removed if not needed)
-    system = platform.system().lower()
-
-    if system == "windows":
-        # Windows may have pea.exe set up
-        if shutil.which("pea.exe"):
-            executable = "pea.exe"
-            Logger.console(f"✅ Found pea.exe on PATH: {shutil.which('pea.exe')}")
-            return executable
-        raise RuntimeError(
-            "PEA executable not found. Please:\n"
-            "1. Build the PEA binary (see ginan build instructions)\n"
-            "2. Add ginan/bin to your PATH, or\n"
-            "3. Run from within the ginan directory structure"
-        )
+        return "pea"
+    
+    # Platform-specific paths for development
+    if platform.system().lower() == "linux":
+        executable = files('app.resources').joinpath('ginan.AppImage')
+    elif platform.system().lower() == "darwin":
+        executable = files('app.resources.osx_arm64.bin').joinpath('pea')
+    elif platform.system().lower() == "windows":
+        raise RuntimeError("No binary for windows available")
+    else:
+        raise RuntimeError("Unsupported platform: " + platform.system())
 
     # 5. If nothing found, provide a helpful error message
     raise RuntimeError(
@@ -221,15 +182,18 @@ class Execution:
         # 1. Set core inputs / outputs
         self.edit_config("inputs.inputs_root", str(INPUT_PRODUCTS_PATH) + "/", False)
 
-        # Extract directory and filename from RINEX path
+        # Normalise RNX path
         rnx_path = Path(inputs.rnx_path)
         rnx_directory = str(rnx_path.parent)
         rnx_filename = rnx_path.name
 
         # Set gnss_observations_root to the directory containing the RINEX file
+
         self.edit_config("inputs.gnss_observations.gnss_observations_root", rnx_directory, False)
 
+
         # Use only the filename (relative path) for rnx_inputs
+
         rnx_val = normalise_yaml_value(rnx_filename)
 
         # 1a. Set rnx_inputs safely, preserving formatting
@@ -242,7 +206,14 @@ class Execution:
             else:
                 new_seq = CommentedSeq([rnx_val])
                 new_seq.fa.set_block_style()
-                self.config["inputs"]["gnss_observations"]["rnx_inputs"] = new_seq
+                # If new_seq is a path string, split into directory and filename
+                if isinstance(rnx_val, str):
+                    dir_path, filename = os.path.split(rnx_val)
+                    # Ensure directory path ends with os.sep (cross-platform)
+                    if dir_path and not dir_path.endswith(os.sep):
+                        dir_path += os.sep
+                    self.config["inputs"]["gnss_observations"]["rnx_inputs"] = filename
+                    self.config["inputs"]["gnss_observations"]["rnx_inputs_root"] = dir_path
         except Exception as e:
             Logger.console(f"[apply_ui_config] Error setting rnx_inputs: {e}")
 

@@ -103,7 +103,12 @@ EPHTYPE* selSatEphFromMap(
 {
     //	trace(4,__FUNCTION__ " : time=%s sat=%2d iode=%d\n",time.to_string(3).c_str(),Sat,iode);
 
-    double tdelay = acsConfig.eph_time_delay[Sat.sys];
+    double tdelay = 0;
+    if (acsConfig.simulate_real_time)
+    {
+        tdelay = acsConfig.eph_time_delay[Sat.sys];
+    }
+
     double tmax;
     switch (Sat.sys)
     {
@@ -127,7 +132,7 @@ EPHTYPE* selSatEphFromMap(
             break;
     }
 
-    if (acsConfig.simulate_real_time && tmax < tdelay)
+    if (tdelay > tmax)
     {
         tracepdeex(
             2,
@@ -142,17 +147,22 @@ EPHTYPE* selSatEphFromMap(
     auto& satEphMap = ephMap[Sat][type];
 
     auto it = satEphMap.lower_bound(time + tmax);
-    if (acsConfig.simulate_real_time)
+    if (acsConfig.simulate_real_time  // Ephemeris should be no later than (time - tdelay) when simulating real-time
+        || iode < 0)                  // Start with the last available ephemeris when iode not provided (== ANY_IODE)
+    {
         it = satEphMap.lower_bound(time - tdelay);
+    }
 
     while (it != satEphMap.end())
     {
         auto& [ephTime, eph] = *it;
 
         if (fabs((eph.toe - time).to_double()) > tmax)
+        {
             break;
+        }
 
-        if (iode >= 0 && iode != eph.iode)
+        if (iode >= 0 && iode != eph.iode)  // Go one-way back in time (forward in map) from (time + tmax) when iode is provided (>= 0)
         {
             it++;
             continue;
@@ -160,6 +170,20 @@ EPHTYPE* selSatEphFromMap(
 
         iode = eph.iode;
         return &eph;
+    }
+
+    if (it != satEphMap.begin() && acsConfig.simulate_real_time == false && iode < 0)
+    {
+        // If no suitable ephemeris found in the past, only try future ones (go backward in map)
+        // when iode not provided (== ANY_IODE) in post-processing
+        it--;
+        auto& [ephTime, eph] = *it;
+
+        if (fabs((eph.toe - time).to_double()) <= tmax)
+        {
+            iode = eph.iode;
+            return &eph;
+        }
     }
 
     tracepdeex(

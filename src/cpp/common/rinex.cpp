@@ -1294,6 +1294,13 @@ int decodeEph(double ver, SatSys Sat, GTime toc, vector<double>& data, Eph& eph)
         return 0;
     }
 
+    double deltaTime = (toc - toc.floorTime(7200)).to_double();
+    if (sys == E_Sys::GPS && deltaTime > 60 && deltaTime < (7200 - 60))
+    {
+        // Skip decoding bad ephemeris (being off for more than 1 minute from 2-hour modulo epochs)
+        return 0;
+    }
+
     eph.type = defNavMsgType[Sat.sys];
     eph.Sat  = Sat;
     eph.toc  = toc;

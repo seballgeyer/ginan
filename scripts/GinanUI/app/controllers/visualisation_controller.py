@@ -24,6 +24,7 @@ from PySide6.QtCore import QRect, QUrl, QObject, QEvent
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QTextEdit, QPushButton, QComboBox, QApplication
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from scripts.GinanUI.app.utils.logger import Logger
 
 HERE = Path(__file__).resolve()
 ROOT = HERE.parents[2]
@@ -146,7 +147,7 @@ class VisualisationController(QObject):
                     env.pop("LD_LIBRARY_PATH", None)  # Clear the value to use sys defaults
                 subprocess.run(["xdg-open", url.url()], env=env)
         except Exception as e:
-            print(f"Error occured trying to open in browser: {e}")
+            Logger.console(f"Error occurred trying to open in browser: {e}")
 
     # ------------------------------------------------------------------
     # Helpers for wiring additional UI elements

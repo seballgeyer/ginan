@@ -649,8 +649,8 @@ struct KalmanModel
 struct LeastSquareOptions
 {
     int    max_iterations       = 2;
-    bool   sigma_check          = true;
-    bool   omega_test           = false;
+    bool   sigma_check          = false;
+    bool   omega_test           = true;
     double meas_sigma_threshold = 4;
 };
 
@@ -666,8 +666,8 @@ struct PrefitOptions
 struct PostfitOptions
 {
     int    max_iterations        = 2;
-    bool   sigma_check           = true;
-    bool   omega_test            = false;
+    bool   sigma_check           = false;
+    bool   omega_test            = true;
     double state_sigma_threshold = 4;
     double meas_sigma_threshold  = 4;
 };

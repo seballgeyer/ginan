@@ -238,7 +238,7 @@ double tropModel(
             continue;
 
         tracepdeex(
-            2,
+            3,
             trace,
             "\nTroposphere Model %s %s  %d %d %d",
             time.to_string().c_str(),

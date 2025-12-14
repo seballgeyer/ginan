@@ -1027,7 +1027,6 @@ void KFState::leastSquareSigmaChecks(
     auto& kfMeas = callbackDetails.kfMeas;
     auto& trace  = callbackDetails.trace;
 
-    auto& V  = kfMeas.V;
     auto& VV = kfMeas.VV;
     auto& R  = kfMeas.R;
     auto& H  = kfMeas.H;
@@ -1039,7 +1038,7 @@ void KFState::leastSquareSigmaChecks(
     if (lsqOpts.sigma_check)
     {
         // use 'array' for component-wise calculations
-        measNumerator   = V.array();
+        measNumerator   = VV.array();
         measDenominator = R.diagonal().array();
     }
     else if (lsqOpts.omega_test)

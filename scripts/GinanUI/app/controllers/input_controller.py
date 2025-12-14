@@ -14,7 +14,14 @@ from decimal import Decimal, InvalidOperation
 
 import pandas as pd
 
-from scripts.GinanUI.app.models.dl_products import get_valid_analysis_centers, str_to_datetime
+from scripts.GinanUI.app.utils.logger import Logger
+
+from scripts.GinanUI.app.models.dl_products import (
+    get_valid_analysis_centers,
+    get_valid_series_for_provider,
+    get_valid_providers_with_series,
+    str_to_datetime
+)
 from PySide6.QtCore import QObject, Signal, Qt, QDateTime, QThread
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtWidgets import (
@@ -39,6 +46,7 @@ from scripts.GinanUI.app.utils.cddis_credentials import save_earthdata_credentia
 from scripts.GinanUI.app.models.archive_manager import (archive_products_if_rinex_changed)
 from scripts.GinanUI.app.models.archive_manager import archive_old_outputs
 from scripts.GinanUI.app.utils.workers import DownloadWorker
+from scripts.GinanUI.app.utils.toast import show_toast
 
 
 class InputController(QObject):
@@ -280,7 +288,7 @@ class InputController(QObject):
         self.last_rinex_path = current_rinex_path
         self.rnx_file = str(current_rinex_path)
 
-        self.ui.terminalTextEdit.append(f"📄 RINEX file selected: {self.rnx_file}")
+        Logger.terminal(f"📄 RINEX file selected: {self.rnx_file}")
 
         try:
             extractor = RinexExtractor(self.rnx_file)
@@ -288,12 +296,18 @@ class InputController(QObject):
 
             # Verify antenna_type against .atx file
             if not self.parent.atx_required_for_rnx_extraction:
-                self.ui.terminalTextEdit.append(
+                Logger.terminal(
                     "⚠️ ANTEX (.atx) file not installed yet. Antenna type verification will be skipped.")
             else:
                 self.verify_antenna_type(result)
 
-            self.ui.terminalTextEdit.append("🔍 Scanning CDDIS archive for PPP products. Please wait...")
+            Logger.terminal("🔍 Scanning CDDIS archive for PPP products. Please wait...")
+
+            # Show toast notification
+            show_toast(self.parent, "🔍 Scanning CDDIS archive for PPP products...", duration=15000)
+
+            # Show waiting cursor during CDDIS scan
+            self.parent.setCursor(Qt.CursorShape.WaitCursor)
 
             # Retrieve valid analysis centers
             start_epoch = str_to_datetime(result['start_epoch'])
@@ -303,9 +317,9 @@ class InputController(QObject):
             self.worker.moveToThread(self.metadata_thread)
 
             self.worker.finished.connect(self._on_cddis_ready)
+            self.worker.finished.connect(self._restore_cursor)  # Restore cursor when done
             self.worker.finished.connect(self.worker.deleteLater)
             self.worker.finished.connect(self.metadata_thread.quit)
-            self.worker.error.connect(self._on_cddis_error)
             self.metadata_thread.finished.connect(self.metadata_thread.deleteLater)
             self.metadata_thread.started.connect(self.worker.run)
             self.metadata_thread.start()
@@ -335,21 +349,18 @@ class InputController(QObject):
             self.ui.outputButton.setEnabled(True)
             self.ui.showConfigButton.setEnabled(True)
 
-            self.ui.terminalTextEdit.append("⚒️ RINEX file metadata extracted and applied to UI fields")
+            Logger.terminal("⚒️ RINEX file metadata extracted and applied to UI fields")
             self.ui.outputButton.setEnabled(True)
             self.ui.showConfigButton.setEnabled(True)
 
         except Exception as e:
-            self.ui.terminalTextEdit.append(f"Error extracting RNX metadata: {e}")
-            print(f"[Error] RNX metadata extraction failed: {e}")
+            Logger.terminal(f"Error extracting RNX metadata: {e}")
             return None
 
         # Always update MainWindow's state
         self.parent.rnx_file = self.rnx_file
-        print(f"[DEBUG InputCtrl] load_rnx_file set parent.rnx_file={self.parent.rnx_file}")
 
         if self.output_dir:
-            print(f"[DEBUG InputCtrl] Emitting ready with rnx={self.rnx_file}, out={self.output_dir}")
             self.ready.emit(str(self.rnx_file), str(self.output_dir))
 
         return result
@@ -385,18 +396,17 @@ class InputController(QObject):
 
                     # Compare strings
                     if result_antenna.strip() == valid_antenna_type.strip():
-                        self.ui.terminalTextEdit.append("✅ Antenna type verified from .atx file")
+                        Logger.terminal("✅ Antenna type verified from .atx file")
                         return
 
         # Not found! Return warning to user
-        print(f"DEBUG: No matching antenna type found in .atx file")
         QMessageBox.warning(
             None,
             "Provided Antenna Type Invalid",
             f'Provided antenna type in .rnx file: "{result["antenna_type"]}"\n'
             f'not found in .atx file: "{atx_path}"'
         )
-        self.ui.terminalTextEdit.append(f"⚠️ Antenna type failed to verify from .atx file: {atx_path}")
+        Logger.terminal(f"⚠️ Antenna type failed to verify from .atx file: {atx_path}")
         return
 
     def get_best_atx_path(self):
@@ -416,13 +426,13 @@ class InputController(QObject):
                 matching_files = [f for f in atx_files if f.name == best_atx]
                 if matching_files:
                     atx_path = matching_files[0]
-                    self.ui.terminalTextEdit.append(f"📁 Selected .atx file: {atx_path.name} based on priority")
+                    Logger.terminal(f"📁 Selected .atx file: {atx_path.name} based on priority")
                     break
 
             # If none of the preferred files found, use the first available
             if atx_path is None:
                 atx_path = atx_files[0]
-                self.ui.terminalTextEdit.append(f"📁 Selected .atx file: {atx_path.name} based on fallback")
+                Logger.terminal(f"📁 Selected .atx file: {atx_path.name} based on fallback")
         else:
             atx_path = atx_files[0]
         return atx_path
@@ -506,7 +516,7 @@ class InputController(QObject):
 
         if len(self.valid_analysis_centers) == 0:
             if log_messages:
-                self.ui.terminalTextEdit.append("⚠️ No valid PPP providers found.")
+                Logger.terminal("⚠️ No valid PPP providers found.")
             self.ui.PPP_provider.clear()
             self.ui.PPP_provider.addItem("None")
             self.ui.PPP_series.clear()
@@ -523,37 +533,62 @@ class InputController(QObject):
         self.try_enable_process_button()
         self._on_ppp_provider_changed(self.valid_analysis_centers[0])
         if log_messages:
-            self.ui.terminalTextEdit.append(
+            Logger.terminal(
                 f"✅ CDDIS archive scan complete. Found PPP product providers: {', '.join(self.valid_analysis_centers)}")
+            # Show success toast
+            show_toast(self.parent, f"✅ Found {len(self.valid_analysis_centers)} PPP provider(s)", duration=3000)
 
     def _on_cddis_error(self, msg):
         """
         UI handler: report CDDIS worker error to the UI.
         """
-        self.ui.terminalTextEdit.append(f"Error loading CDDIS data: {msg}")
+        Logger.terminal(f"Error loading CDDIS data: {msg}")
         self.ui.PPP_provider.clear()
         self.ui.PPP_provider.addItem("None")
+        # Restore cursor in case of error
+        self.parent.setCursor(Qt.CursorShape.ArrowCursor)
+        # Show error toast
+        show_toast(self.parent, "⚠️ Failed to scan CDDIS archive", duration=4000)
+
+    def _restore_cursor(self):
+        """
+        Restore the cursor to normal arrow after background operation completes.
+        """
+        self.parent.setCursor(Qt.CursorShape.ArrowCursor)
 
     def _on_ppp_provider_changed(self, provider_name: str):
         """
         UI handler: when PPP provider changes, refresh project and series options.
+        Only shows series that have all required files (SP3, BIA, CLK).
         """
         if not provider_name or provider_name.strip() == "":
-            print("[Warning] No PPP provider selected — isgnoring update.")
             return
         try:
-            # Get DataFrame of valid (project, series) pairs
+            # Get valid series for this provider (only those with all required files)
+            valid_series = get_valid_series_for_provider(self.products_df, provider_name)
+
+            if not valid_series:
+                raise ValueError(f"No valid series (with all required files) for provider: {provider_name}")
+
+            # Get DataFrame of valid (project, series) pairs - filter for valid series only
             df = self.products_df.loc[
-                self.products_df["analysis_center"] == provider_name, ["project", "solution_type"]]
+                (self.products_df["analysis_center"] == provider_name) &
+                (self.products_df["solution_type"].isin(valid_series)),
+                ["project", "solution_type"]]
 
             if df.empty:
                 raise ValueError(f"No valid project–series combinations for provider: {provider_name}")
 
             # Store for future filtering if needed
             self._valid_project_series_df = df
+            self._valid_series_for_provider = valid_series  # Cache valid series
 
             project_options = sorted(df['project'].unique())
             series_options = sorted(df['solution_type'].unique())
+
+            # Block signals before clearing and populating to prevent any duplicates in dropdown
+            self.ui.PPP_project.blockSignals(True)
+            self.ui.PPP_series.blockSignals(True)
 
             self.ui.PPP_project.clear()
             self.ui.PPP_series.clear()
@@ -561,15 +596,14 @@ class InputController(QObject):
             self.ui.PPP_project.addItems(project_options)
             self.ui.PPP_series.addItems(series_options)
 
-            print(f"[CDDIS] Updated PPP_project for {provider_name}: {project_options}")
-            print(f"[CDDIS] Updated PPP_series for {provider_name}: {series_options}")
-
-            # Optionally set default selections here:
             self.ui.PPP_project.setCurrentIndex(0)
             self.ui.PPP_series.setCurrentIndex(0)
 
+            # Unblock signals now that the population is complete
+            self.ui.PPP_project.blockSignals(False)
+            self.ui.PPP_series.blockSignals(False)
+
         except Exception as e:
-            print(f"[Error] Failed to update PPP options for provider {provider_name}: {e}")
             self.ui.PPP_series.clear()
             self.ui.PPP_series.addItem("None")
             self.ui.PPP_project.clear()
@@ -595,11 +629,10 @@ class InputController(QObject):
         self.ui.PPP_project.setCurrentIndex(0)
         self.ui.PPP_project.blockSignals(False)
 
-        print(f"[UI] Filtered PPP_project for series '{selected_series}': {valid_projects}")
-
     def _on_ppp_project_changed(self, selected_project: str):
         """
         UI handler: when PPP project changes, filter valid series.
+        Only displays series that have all required files (SP3, BIA, CLK).
         """
         if not hasattr(self, "_valid_project_series_df"):
             return
@@ -608,13 +641,17 @@ class InputController(QObject):
         filtered_df = df[df["project"] == selected_project]
         valid_series = sorted(filtered_df["solution_type"].unique())
 
+        # Ensure only series with all required files are displayed
+        if hasattr(self, "_valid_series_for_provider"):
+            valid_series = [s for s in valid_series if s in self._valid_series_for_provider]
+
         self.ui.PPP_series.blockSignals(True)
         self.ui.PPP_series.clear()
         self.ui.PPP_series.addItems(valid_series)
         self.ui.PPP_series.setCurrentIndex(0)
         self.ui.PPP_series.blockSignals(False)
 
-        print(f"[UI] Filtered PPP_series for project '{selected_project}': {valid_series}")
+        Logger.terminal(f"[UI] Filtered PPP_series for project '{selected_project}': {valid_series}")
 
     def load_output_dir(self):
         """
@@ -627,7 +664,7 @@ class InputController(QObject):
 
         # Ensure output_dir is a Path object
         self.output_dir = Path(path).resolve()
-        self.ui.terminalTextEdit.append(f"📂 Output directory selected: {self.output_dir}")
+        Logger.terminal(f"📂 Output directory selected: {self.output_dir}")
 
         # Archive existing/old outputs
         visual_dir = self.output_dir / "visual"
@@ -639,10 +676,8 @@ class InputController(QObject):
 
         # Always update MainWindow's state
         self.parent.output_dir = self.output_dir
-        print(f"[DEBUG InputCtrl] load_output_dir set parent.output_dir={self.parent.output_dir}")
 
         if self.rnx_file:
-            print(f"[DEBUG InputCtrl] Emitting ready with rnx={self.rnx_file}, out={self.output_dir}")
             self.ready.emit(str(self.rnx_file), str(self.output_dir))
 
     def try_enable_process_button(self):
@@ -1004,7 +1039,6 @@ class InputController(QObject):
         else:
             # Fallback to the label text if no custom model exists
             constellations_raw = self.ui.constellationsValue.text()
-        print("*****", constellations_raw)
         time_window_raw = self.ui.timeWindowValue.text()  # Get from button, not value label
         epoch_interval_raw = self.ui.dataIntervalButton.text()  # Get from button, not value label
         receiver_type = self.ui.receiverTypeValue.text()
@@ -1020,21 +1054,6 @@ class InputController(QObject):
         epoch_interval = int(epoch_interval_raw.replace("s", "").strip())
         marker_name = self.extract_marker_name(rnx_path)
         mode = self.determine_mode_value(mode_raw)
-
-        # Print verification
-        print("InputExtractController Extraction Completed：")
-        print("mode =", mode)
-        print("constellation =", constellations_raw)
-        print("start_epoch =", start_epoch)
-        print("end_epoch =", end_epoch)
-        print("epoch_interval =", epoch_interval)
-        print("receiver_type =", receiver_type)
-        print("antenna_type =", antenna_type)
-        print("antenna_offset =", antenna_offset)
-        print("PPP_provider =", ppp_provider)
-        print("PPP_series =", ppp_series)
-        print("PPP_project =", ppp_project)
-        print("marker = ", marker_name)
 
         # Returned the values found as a dataclass for easier access
         return self.ExtractedInputs(
@@ -1058,8 +1077,7 @@ class InputController(QObject):
         """
         UI handler: reload config, apply UI values, write changes, then open the YAML.
         """
-        print("opening config file...")
-        print("[DEBUG] on_show_config: rnx_file =", self.rnx_file)
+        Logger.terminal("opening config file...")
         # Reload disk version before overwriting with GUI changes
         self.execution.reload_config()
         inputs = self.extract_ui_values(self.rnx_file)
@@ -1111,7 +1129,7 @@ class InputController(QObject):
 
         except Exception as e:
             error_message = f"Cannot open config file:\n{file_path}\n\nError: {str(e)}"
-            print(f"Error: {error_message}")
+            Logger.terminal(f"Error: {error_message}")
             QMessageBox.critical(
                 None,
                 "Error Opening File",
@@ -1123,8 +1141,6 @@ class InputController(QObject):
         UI handler: validate time window and config, apply UI, then emit pea_ready.
         """
         raw = self.ui.timeWindowValue.text()
-        print(f"[UI] Time window raw input: {raw}")
-        print("[DEBUG] on_run_pea: rnx_file =", self.rnx_file)
 
         # --- Parse time window ---
         try:
@@ -1163,7 +1179,7 @@ class InputController(QObject):
             self.execution.apply_ui_config(inputs)  # config only, no product archiving here
             self.execution.write_cached_changes()
         except Exception as e:
-            self.ui.terminalTextEdit.append(f"⚠️ Failed to apply config: {e}")
+            Logger.terminal(f"⚠️ Failed to apply config: {e}")
             return
 
         # --- Emit signal for MainWindow ---
@@ -1204,7 +1220,7 @@ class InputController(QObject):
             parent,
             "Select RINEX Observation File",
             "",
-            "RINEX Observation Files (*.rnx *.rnx.gz);;All Files (*.*)"
+            "RINEX Observation Files (*.rnx *.rnx.gz *.[0-9][0-9]o *.[0-9][0-9]o.gz *.obs *.obs.gz);;All Files (*.*)"
         )
         return path or ""
 
@@ -1489,8 +1505,9 @@ def stop_all(self):
     try:
         if hasattr(self, "worker"):
             _safe_call_stop(self.worker)
-            # if hasattr(self, "ui") and hasattr(self.ui, "terminalTextEdit"):
-            # self.ui.terminalTextEdit.append("[UI] Stop requested → metadata worker")
+        # Restore cursor when stopping
+        if hasattr(self, "parent"):
+            self.parent.setCursor(Qt.CursorShape.ArrowCursor)
     except Exception:
         pass
 

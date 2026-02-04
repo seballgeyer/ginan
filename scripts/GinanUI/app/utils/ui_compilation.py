@@ -16,6 +16,7 @@ def compile_ui():
       >>> compile_ui()
       UI compiled successfully.
     """
+    import re
 
     # File paths
     ui_file = Path(__file__).parent.parent / "views" / "main_window.ui"
@@ -34,16 +35,18 @@ def compile_ui():
     else:
         raise ImportError("Ensure pyside6-uic is installed and available on PATH.")
 
-    # Manually fix the file path to the logo resource
+    # Fix resource imports using regex to find and replace dynamically
     with open(output_file, 'r') as f:
-        lines = f.readlines()
-        for i, line in enumerate(lines):
-            if line == "import ginan_logo_rc\n":
-                lines[i] = "from scripts.GinanUI.app.resources.assets import ginan_logo_rc\n"
-            if line == "import icons_rc\n":
-                lines[i] = "from scripts.GinanUI.app.resources.assets import icons_rc\n"
+        content = f.read()
+    
+    # Replace resource imports with correct paths (handles both resource files)
+    content = re.sub(r'^import ginan_logo_rc$', 'from scripts.GinanUI.app.resources.assets import ginan_logo_rc', content, flags=re.MULTILINE)
+    content = re.sub(r'^import icons_rc$', 'from scripts.GinanUI.app.resources.assets import icons_rc', content, flags=re.MULTILINE)
+    
     with open(output_file, 'w') as f:
-        f.writelines(lines)
+        f.writelines(content)
+    
+    print("Fixed resource imports in generated UI file.")
 
 if __name__ == "__main__":
     compile_ui()

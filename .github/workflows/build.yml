@@ -295,7 +295,6 @@ jobs:
           --hidden-import scripts.GinanUI.app.utils.gn_functions \
           --hidden-import scripts.GinanUI.app.utils.yaml \
           --hidden-import scripts.GinanUI.app.views.main_window_ui \
-          --collect-all scripts.GinanUI \
           scripts/GinanUI/main.py
     
     - name: Build GUI with PyInstaller (Windows)
@@ -328,7 +327,6 @@ jobs:
           --hidden-import scripts.GinanUI.app.utils.gn_functions `
           --hidden-import scripts.GinanUI.app.utils.yaml `
           --hidden-import scripts.GinanUI.app.views.main_window_ui `
-          --collect-all scripts.GinanUI `
           scripts/GinanUI/main.py
     
     # Post-build cleanup

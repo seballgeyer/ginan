@@ -160,6 +160,7 @@ jobs:
             os: ubuntu-latest
             binary-artifact: ginan-linux-x64
             gui-artifact: ginan-gui-linux-x64
+            ui-sed-cmd: sed -i '24s/.*/from scripts.GinanUI.app.resources import ginan_logo_rc/' app/views/main_window_ui.py
             pyinstaller-args: --windowed
             extra-steps: ""
             
@@ -167,6 +168,7 @@ jobs:
             os: macos-15
             binary-artifact: ginan-macos-arm64
             gui-artifact: ginan-gui-macos-arm64
+            ui-sed-cmd: sed -i '' '24s/.*/from scripts.GinanUI.app.resources import ginan_logo_rc/' app/views/main_window_ui.py
             pyinstaller-args: --onedir --clean --target-arch arm64 --noconfirm
             extra-steps: macos
             
@@ -174,6 +176,7 @@ jobs:
             os: macos-15-intel
             binary-artifact: ginan-macos-x64
             gui-artifact: ginan-gui-macos-x64
+            ui-sed-cmd: sed -i '' '24s/.*/from scripts.GinanUI.app.resources import ginan_logo_rc/' app/views/main_window_ui.py
             pyinstaller-args: --onedir --clean --noconfirm
             extra-steps: macos
             
@@ -181,6 +184,14 @@ jobs:
             os: windows-latest
             binary-artifact: ginan-windows-x64
             gui-artifact: ginan-gui-windows-x64
+            ui-sed-cmd: |
+              (Get-Content app/views/main_window_ui.py) | ForEach-Object {
+                if ($_.ReadCount -eq 24) {
+                  "from scripts.GinanUI.app.resources import ginan_logo_rc"
+                } else {
+                  $_
+                }
+              } | Set-Content app/views/main_window_ui.py
             pyinstaller-args: --windowed
             pyinstaller-separator: ";"
             extra-steps: ""
@@ -215,6 +226,7 @@ jobs:
       working-directory: scripts/GinanUI
       run: |
         pyside6-uic app/views/main_window.ui -o app/views/main_window_ui.py
+        ${{ matrix.ui-sed-cmd }}
     
     - name: Convert UI files to Python (Windows)
       if: runner.os == 'Windows'
@@ -222,6 +234,7 @@ jobs:
       shell: pwsh
       run: |
         pyside6-uic app/views/main_window.ui -o app/views/main_window_ui.py
+        ${{ matrix.ui-sed-cmd }}
     
     - name: Make binaries executable (Unix)
       if: runner.os != 'Windows'

@@ -6,7 +6,7 @@ def get_base_path():
     if getattr(sys, 'frozen', False):
         # Running in PyInstaller bundle - sys._MEIPASS is _internal/
         # and app folder is at _internal/app/
-        return Path(sys._MEIPASS) / "app"
+        return Path(sys._MEIPASS) / "scripts" / "GinanUI" / "app"
     else:
         # Running in development mode - __file__ is in app/utils/
         return Path(__file__).parent.parent
@@ -15,7 +15,7 @@ def get_user_manual_path():
     """Get the path to the user manual, handling both development and PyInstaller bundled modes."""
     if getattr(sys, 'frozen', False):
         # Running in PyInstaller bundle - look in _internal/docs/
-        return Path(sys._MEIPASS) / "docs" / "USER_MANUAL.md"
+        return Path(sys._MEIPASS) / "scripts" / "GinanUI" / "docs" / "USER_MANUAL.md"
     else:
         # Running in development mode - __file__ is in app/utils/
         return Path(__file__).parent.parent.parent / "docs" / "USER_MANUAL.md"

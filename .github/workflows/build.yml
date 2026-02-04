@@ -210,40 +210,9 @@ jobs:
         pip install -r scripts/GinanUI/requirements.txt
         pip install pyinstaller
     
-    - name: Convert UI files to Python (Unix)
-      if: runner.os != 'Windows'
+    - name: Convert UI files to Python
       working-directory: scripts/GinanUI
-      run: |
-        pyside6-uic app/views/main_window.ui -o app/views/main_window_ui.py
-        python -c "
-import re
-with open('app/views/main_window_ui.py', 'r') as f:
-    content = f.read()
-# Replace resource imports with correct paths
-content = re.sub(r'^import ginan_logo_rc$', 'from scripts.GinanUI.app.resources.assets import ginan_logo_rc', content, flags=re.MULTILINE)
-content = re.sub(r'^import icons_rc$', 'from scripts.GinanUI.app.resources.assets import icons_rc', content, flags=re.MULTILINE)
-with open('app/views/main_window_ui.py', 'w') as f:
-    f.write(content)
-print('Fixed resource imports in main_window_ui.py')
-"
-    
-    - name: Convert UI files to Python (Windows)
-      if: runner.os == 'Windows'
-      working-directory: scripts/GinanUI
-      shell: pwsh
-      run: |
-        pyside6-uic app/views/main_window.ui -o app/views/main_window_ui.py
-        python -c @"
-import re
-with open('app/views/main_window_ui.py', 'r') as f:
-    content = f.read()
-# Replace resource imports with correct paths
-content = re.sub(r'^import ginan_logo_rc$', 'from scripts.GinanUI.app.resources.assets import ginan_logo_rc', content, flags=re.MULTILINE)
-content = re.sub(r'^import icons_rc$', 'from scripts.GinanUI.app.resources.assets import icons_rc', content, flags=re.MULTILINE)
-with open('app/views/main_window_ui.py', 'w') as f:
-    f.write(content)
-print('Fixed resource imports in main_window_ui.py')
-"@
+      run: python app/utils/ui_compilation.py
     
     - name: Make binaries executable (Unix)
       if: runner.os != 'Windows'

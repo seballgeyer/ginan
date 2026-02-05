@@ -303,7 +303,7 @@ jobs:
         pyinstaller --name GinanUI `
           ${{ matrix.pyinstaller-args }} `
           --add-data "scripts/GinanUI/app;scripts/GinanUI/app" `
-          --add-data "scripts/GinanUI/docs;scripts/docs" `
+          --add-data "scripts/GinanUI/docs;scripts/GinanUI/docs" `
           --add-data "scripts/plot_pos.py;scripts" `
           --add-data "scripts/plot_trace_res.py;scripts" `
           --add-binary "bin/*;bin" `
